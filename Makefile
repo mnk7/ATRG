@@ -1,7 +1,7 @@
 CXXFLAGS += -fopenmp -std=c++17 -I./ -march=native
-LIBS = -larmadillo -lopenblas
+LIBS = -larmadillo -lopenblas -llapack
 
-atrg_test: main.o
+atrg_test: atrg-test.o
 	$(CXX) -Wall -o build/$@ $(CXXFLAGS) $^ $(LIBS)
 	rm -f *.o
 

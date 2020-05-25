@@ -1,0 +1,684 @@
+desc: (none)
+cmd: ./build/atrg_test
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=2649110
+mem_heap_B=1984
+mem_heap_extra_B=8
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=2
+#-----------
+time=2662170
+mem_heap_B=8892
+mem_heap_extra_B=60
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=2674507
+mem_heap_B=86288
+mem_heap_extra_B=224
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=2687493
+mem_heap_B=86288
+mem_heap_extra_B=224
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=5
+#-----------
+time=2707616
+mem_heap_B=86928
+mem_heap_extra_B=240
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=6
+#-----------
+time=2722836
+mem_heap_B=87568
+mem_heap_extra_B=256
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=2730446
+mem_heap_B=87888
+mem_heap_extra_B=264
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=2744214
+mem_heap_B=88208
+mem_heap_extra_B=272
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=2751824
+mem_heap_B=88528
+mem_heap_extra_B=280
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=2879336
+mem_heap_B=88536
+mem_heap_extra_B=296
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=2879646
+mem_heap_B=8088564
+mem_heap_extra_B=3868
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=12
+#-----------
+time=10879708
+mem_heap_B=8088564
+mem_heap_extra_B=3868
+mem_stacks_B=0
+heap_tree=detailed
+n2: 8088564 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 88564 in 14 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=13
+#-----------
+time=10879738
+mem_heap_B=8088548
+mem_heap_extra_B=3836
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=128852155
+mem_heap_B=8089572
+mem_heap_extra_B=3844
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=15
+#-----------
+time=128863457
+mem_heap_B=16089572
+mem_heap_extra_B=3868
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=132532956
+mem_heap_B=24089572
+mem_heap_extra_B=3892
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=395179448
+mem_heap_B=32089572
+mem_heap_extra_B=3916
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=396242094
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=19
+#-----------
+time=396242286
+mem_heap_B=64253624
+mem_heap_extra_B=4000
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=2582016465
+mem_heap_B=64253624
+mem_heap_extra_B=4000
+mem_stacks_B=0
+heap_tree=detailed
+n6: 64253624 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 32096016 0x117523: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 32096016 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10DC6F: void arma::glue_times::apply<double, true, false, false, arma::Mat<double>, arma::Mat<double> >(arma::Mat<double>&, arma::Mat<double> const&, arma::Mat<double> const&, double) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 8000000 0x1165B2: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10F4B8: arma::Mat<double>::init_warm(unsigned long long, unsigned long long) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10B94E: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x11794A: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 157608 in 17 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=21
+#-----------
+time=2582016551
+mem_heap_B=24097572
+mem_heap_extra_B=3916
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=2584032570
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=2848678513
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=2849741166
+mem_heap_B=72193588
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=2849741253
+mem_heap_B=72253624
+mem_heap_extra_B=4024
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=5029325780
+mem_heap_B=72253624
+mem_heap_extra_B=4024
+mem_stacks_B=0
+heap_tree=detailed
+n7: 72253624 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 32096016 0x1191A3: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 32096016 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10E65F: void arma::glue_times::apply<double, false, true, false, arma::Mat<double>, arma::Mat<double> >(arma::Mat<double>&, arma::Mat<double> const&, arma::Mat<double> const&, double) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 8000000 0x118232: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 8000000 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10F4B8: arma::Mat<double>::init_warm(unsigned long long, unsigned long long) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10B94E: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x11794A: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x1195CA: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 157608 in 20 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=27
+#-----------
+time=5029325866
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=5031448874
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=5032531188
+mem_heap_B=152161572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=5032531275
+mem_heap_B=152193572
+mem_heap_extra_B=4012
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=9467771259
+mem_heap_B=152193572
+mem_heap_extra_B=4012
+mem_stacks_B=0
+heap_tree=peak
+n7: 152193572 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 112064000 0x111AE3: bool arma::auxlib::svd_dc<double, arma::Mat<double> >(arma::Mat<double>&, arma::Col<double>&, arma::Mat<double>&, arma::Base<double, arma::Mat<double> > const&) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 112064000 0x1134B0: bool arma::svd<arma::Mat<double> >(arma::Mat<arma::Mat<double>::elem_type>&, arma::Col<arma::Mat<double>::pod_type>&, arma::Mat<arma::Mat<double>::elem_type>&, arma::Base<arma::Mat<double>::elem_type, arma::Mat<double> > const&, char const*, arma::arma_blas_type_only<arma::Mat<double>::elem_type>::result const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 112064000 0x10BD96: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10F4B8: arma::Mat<double>::init_warm(unsigned long long, unsigned long long) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10B94E: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x1119FF: bool arma::auxlib::svd_dc<double, arma::Mat<double> >(arma::Mat<double>&, arma::Col<double>&, arma::Mat<double>&, arma::Base<double, arma::Mat<double> > const&) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 8000000 0x1134B0: bool arma::svd<arma::Mat<double> >(arma::Mat<arma::Mat<double>::elem_type>&, arma::Col<arma::Mat<double>::pod_type>&, arma::Mat<arma::Mat<double>::elem_type>&, arma::Base<arma::Mat<double>::elem_type, arma::Mat<double> > const&, char const*, arma::arma_blas_type_only<arma::Mat<double>::elem_type>::result const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 8000000 0x10BD96: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x11794A: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x1195CA: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 129572 in 23 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=32
+#-----------
+time=9467771333
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=9467872170
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=9468937861
+mem_heap_B=40633572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=38796268150
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=38796268190
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=38796323589
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=38
+#-----------
+time=38797386271
+mem_heap_B=152161572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=38797386355
+mem_heap_B=152193572
+mem_heap_extra_B=4012
+mem_stacks_B=0
+heap_tree=detailed
+n7: 152193572 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 112064000 0x113F8F: bool arma::auxlib::svd_dc_econ<double, arma::Mat<double> >(arma::Mat<double>&, arma::Col<double>&, arma::Mat<double>&, arma::Base<double, arma::Mat<double> > const&) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 112064000 0x115B6A: bool arma::svd_econ<arma::Mat<double> >(arma::Mat<arma::Mat<double>::elem_type>&, arma::Col<arma::Mat<double>::pod_type>&, arma::Mat<arma::Mat<double>::elem_type>&, arma::Base<arma::Mat<double>::elem_type, arma::Mat<double> > const&, char, char const*, arma::arma_blas_type_only<arma::Mat<double>::elem_type>::result const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 112064000 0x10C033: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10F4B8: arma::Mat<double>::init_warm(unsigned long long, unsigned long long) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10B94E: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x113EBF: bool arma::auxlib::svd_dc_econ<double, arma::Mat<double> >(arma::Mat<double>&, arma::Col<double>&, arma::Mat<double>&, arma::Base<double, arma::Mat<double> > const&) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n1: 8000000 0x115B6A: bool arma::svd_econ<arma::Mat<double> >(arma::Mat<arma::Mat<double>::elem_type>&, arma::Col<arma::Mat<double>::pod_type>&, arma::Mat<arma::Mat<double>::elem_type>&, arma::Base<arma::Mat<double>::elem_type, arma::Mat<double> > const&, char, char const*, arma::arma_blas_type_only<arma::Mat<double>::elem_type>::result const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+   n0: 8000000 0x10C033: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x11794A: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x1195CA: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 129572 in 28 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=40
+#-----------
+time=43155777967
+mem_heap_B=152161572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=43155778041
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=43155871929
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=43156935217
+mem_heap_B=40217572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=43156938360
+mem_heap_B=40633572
+mem_heap_extra_B=3988
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=72498890214
+mem_heap_B=40097572
+mem_heap_extra_B=3964
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=72498890254
+mem_heap_B=32097572
+mem_heap_extra_B=3940
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=72498950138
+mem_heap_B=32089572
+mem_heap_extra_B=3916
+mem_stacks_B=0
+heap_tree=detailed
+n5: 32089572 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n0: 8000000 0x10B6F1: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x10F4B8: arma::Mat<double>::init_warm(unsigned long long, unsigned long long) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10B94E: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x11794A: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> >(arma::Col<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times>::elem_type, arma::Glue<arma::Op<arma::Mat<double>, arma::op_htrans>, arma::Mat<double>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BB9F: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 8000000 0x1195CA: arma::enable_if2<arma::is_supported_blas_type<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>::value, bool>::result arma::eig_sym<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> >(arma::Col<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::pod_type>&, arma::Mat<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type>&, arma::Base<arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times>::elem_type, arma::Glue<arma::Mat<double>, arma::Op<arma::Mat<double>, arma::op_htrans>, arma::glue_times> > const&, char const*) (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+  n0: 8000000 0x10BBE0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n0: 89572 in 33 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=48
+#-----------
+time=72498967466
+mem_heap_B=89232
+mem_heap_extra_B=280
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=49
+#-----------
+time=72498980553
+mem_heap_B=86601
+mem_heap_extra_B=199
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=72498980636
+mem_heap_B=86594
+mem_heap_extra_B=182
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=72498980831
+mem_heap_B=86082
+mem_heap_extra_B=174
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=52
+#-----------
+time=72498980925
+mem_heap_B=85298
+mem_heap_extra_B=158
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=72498981242
+mem_heap_B=84546
+mem_heap_extra_B=150
+mem_stacks_B=0
+heap_tree=detailed
+n8: 84546 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 72704 0x6A88C19: ??? (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28)
+  n1: 72704 0x4011B89: call_init.part.0 (dl-init.c:72)
+   n1: 72704 0x4011C90: call_init (dl-init.c:30)
+    n1: 72704 0x4011C90: _dl_init (dl-init.c:119)
+     n0: 72704 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 4096 0x6D8EC46: register_printf_specifier (reg-printf.c:57)
+  n1: 4096 0x720BB75: ??? (in /usr/lib/x86_64-linux-gnu/libquadmath.so.0.0.0)
+   n1: 4096 0x4011B89: call_init.part.0 (dl-init.c:72)
+    n1: 4096 0x4011C90: call_init (dl-init.c:30)
+     n1: 4096 0x4011C90: _dl_init (dl-init.c:119)
+      n0: 4096 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 2040 0x6D90F5E: register_printf_modifier (reg-modifier.c:69)
+  n1: 2040 0x720BB4E: ??? (in /usr/lib/x86_64-linux-gnu/libquadmath.so.0.0.0)
+   n1: 2040 0x4011B89: call_init.part.0 (dl-init.c:72)
+    n1: 2040 0x4011C90: call_init (dl-init.c:30)
+     n1: 2040 0x4011C90: _dl_init (dl-init.c:119)
+      n0: 2040 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 1984 0x6D911EE: register_printf_type (reg-type.c:43)
+  n1: 1984 0x720BB33: ??? (in /usr/lib/x86_64-linux-gnu/libquadmath.so.0.0.0)
+   n1: 1984 0x4011B89: call_init.part.0 (dl-init.c:72)
+    n1: 1984 0x4011C90: call_init (dl-init.c:30)
+     n1: 1984 0x4011C90: _dl_init (dl-init.c:119)
+      n0: 1984 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 1280 0x40149CA: allocate_dtv (dl-tls.c:286)
+  n1: 1280 0x40149CA: _dl_allocate_tls (dl-tls.c:532)
+   n1: 1280 0x6F2B322: allocate_stack (allocatestack.c:622)
+    n1: 1280 0x6F2B322: pthread_create@@GLIBC_2.2.5 (pthread_create.c:660)
+     n1: 1280 0x4B8FC8B: blas_thread_init (in /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so)
+      n1: 1280 0x4959082: gotoblas_init (in /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so)
+       n1: 1280 0x4011B89: call_init.part.0 (dl-init.c:72)
+        n1: 1280 0x4011C90: call_init (dl-init.c:30)
+         n1: 1280 0x4011C90: _dl_init (dl-init.c:119)
+          n0: 1280 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 1024 0x6DB1E83: _IO_file_doallocate (filedoalloc.c:101)
+  n1: 1024 0x6DC204F: _IO_doallocbuf (genops.c:347)
+   n1: 1024 0x6DC10AF: _IO_file_overflow@@GLIBC_2.2.5 (fileops.c:745)
+    n1: 1024 0x6DBF834: _IO_new_file_xsputn (fileops.c:1244)
+     n1: 1024 0x6DBF834: _IO_file_xsputn@@GLIBC_2.2.5 (fileops.c:1197)
+      n1: 1024 0x6DB3540: fwrite (iofwrite.c:39)
+       n1: 1024 0x6B15783: std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.28)
+        n0: 1024 0x10B8F0: main (in /home/mnk7/Dokumente/Masterarbeit/ATRG/build/atrg_test)
+ n1: 848 0x6F63216: ??? (in /usr/lib/x86_64-linux-gnu/libgfortran.so.5.0.0)
+  n0: 848 in 2 places, all below massif's threshold (1.00%)
+ n0: 570 in 30 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=54
+#-----------
+time=72498981314
+mem_heap_B=84450
+mem_heap_extra_B=142
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=72498981394
+mem_heap_B=84444
+mem_heap_extra_B=124
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=72498981589
+mem_heap_B=83932
+mem_heap_extra_B=116
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=57
+#-----------
+time=72498981683
+mem_heap_B=83148
+mem_heap_extra_B=100
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=72498985711
+mem_heap_B=10444
+mem_heap_extra_B=92
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=59
+#-----------
+time=72498988029
+mem_heap_B=10424
+mem_heap_extra_B=72
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=60
+#-----------
+time=72498989105
+mem_heap_B=8384
+mem_heap_extra_B=56
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=72498989168
+mem_heap_B=7360
+mem_heap_extra_B=48
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=62
+#-----------
+time=72498990698
+mem_heap_B=7040
+mem_heap_extra_B=40
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=72498991201
+mem_heap_B=6720
+mem_heap_extra_B=32
+mem_stacks_B=0
+heap_tree=detailed
+n4: 6720 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 4096 0x6D8EC46: register_printf_specifier (reg-printf.c:57)
+  n1: 4096 0x720BB75: ??? (in /usr/lib/x86_64-linux-gnu/libquadmath.so.0.0.0)
+   n1: 4096 0x4011B89: call_init.part.0 (dl-init.c:72)
+    n1: 4096 0x4011C90: call_init (dl-init.c:30)
+     n1: 4096 0x4011C90: _dl_init (dl-init.c:119)
+      n0: 4096 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 1984 0x6D911EE: register_printf_type (reg-type.c:43)
+  n1: 1984 0x720BB33: ??? (in /usr/lib/x86_64-linux-gnu/libquadmath.so.0.0.0)
+   n1: 1984 0x4011B89: call_init.part.0 (dl-init.c:72)
+    n1: 1984 0x4011C90: call_init (dl-init.c:30)
+     n1: 1984 0x4011C90: _dl_init (dl-init.c:119)
+      n0: 1984 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n1: 640 0x40149CA: allocate_dtv (dl-tls.c:286)
+  n1: 640 0x40149CA: _dl_allocate_tls (dl-tls.c:532)
+   n1: 640 0x6F2B322: allocate_stack (allocatestack.c:622)
+    n1: 640 0x6F2B322: pthread_create@@GLIBC_2.2.5 (pthread_create.c:660)
+     n1: 640 0x4B8FC8B: blas_thread_init (in /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so)
+      n1: 640 0x4959082: gotoblas_init (in /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.8.so)
+       n1: 640 0x4011B89: call_init.part.0 (dl-init.c:72)
+        n1: 640 0x4011C90: call_init (dl-init.c:30)
+         n1: 640 0x4011C90: _dl_init (dl-init.c:119)
+          n0: 640 0x4001139: ??? (in /usr/lib/x86_64-linux-gnu/ld-2.31.so)
+ n0: 0 in 34 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=64
+#-----------
+time=72498991704
+mem_heap_B=6400
+mem_heap_extra_B=24
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=72498992207
+mem_heap_B=6080
+mem_heap_extra_B=16
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=66
+#-----------
+time=72498993252
+mem_heap_B=1984
+mem_heap_extra_B=8
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=67
+#-----------
+time=72498993285
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty

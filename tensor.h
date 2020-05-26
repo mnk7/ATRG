@@ -5,6 +5,8 @@
 #include <fstream>
 #include <vector>
 #include <valarray>
+#include <algorithm>
+
 #include <armadillo>
 #include <omp.h>
 
@@ -16,41 +18,43 @@ namespace ATRG {
     template<class T>
     class Tensor {
     public:
-        Tensor() : order(0), dimtot(0) {}
-        Tensor(const std::vector<uint>& dim);
+        Tensor() : order(0), size(0) {}
+        Tensor(const std::vector<uint> dimensions);
 
-        void reshape(const std::vector<uint> dim);
-        void reshape(const uint k, const uint dk);
+        void reshape(const std::vector<uint> dimensions);
+        void reshape(const uint index, const uint dimension);
 
         void print(std::ofstream &os);
         void print();
 
-        void zero();
         T Frobnorm2();
         T Frobnorm();
 
         T max();
+        void fill(const T value);
         void rescale(const T s);
 
         uint flatindex(const std::vector<uint> index);
         std::vector<uint> multiindex(const uint flatindex);
-        void flatten(const uint k, arma::Mat<T> &flatk);
-        void inflate(const uint k, const arma::Mat<T> &flatk);
+        void flatten(const uint index, arma::Mat<T> &flat);
+        void flatten(const std::vector<uint> indices, arma::Mat<T> &flat);
+        void inflate(const uint index, const arma::Mat<T> &flat);
+        void inflate(const std::vector<uint> indices, arma::Mat<T> &flat);
 
-
-        T* data() { return &t[0]; }
-        uint size() const { return dimtot; }
+        uint get_size() const { return size; }
         uint get_order() const { return order; }
-        uint get_dim(const uint k) const { return dim[k]; }
-        void get_dim(std::vector<uint> &dim) { dim = this->dim; }
+        uint get_dimensions(const uint index) const { return dimensions[index]; }
+        std::vector<uint> get_dimensions() { return dimensions; }
         uint get_base(const uint i) const { return base[i]; }
 
+        T* data() { return &t[0]; }
 
-        T& operator()(const uint tot_index) {
-            return t[tot_index];
+
+        T& operator()(const uint flatindex) {
+            return t[flatindex];
         }
-        const T& operator()(const uint tot_index) const {
-            return t[tot_index];
+        const T& operator()(const uint flatindex) const {
+            return t[flatindex];
         }
         T& operator()(const std::vector<uint>& index) {
             return t[flatindex(index)];
@@ -76,9 +80,9 @@ namespace ATRG {
         // order of tensor
         uint order;
         // number of elements in the tensor, saved in the last element of base
-        uint dimtot;
+        uint size;
         // dimensions of each index
-        std::vector<uint> dim;
+        std::vector<uint> dimensions;
         // tensor content
         std::valarray<T> t;
         // base factor for each index -> hypercube for elements of the indices
@@ -92,8 +96,8 @@ namespace ATRG {
      * lowest index runs fastest, highest index lowest (column major for matrices)
      */
     template <class T>
-    Tensor<T>::Tensor(const std::vector<uint> &dim) {
-        reshape(dim);
+    Tensor<T>::Tensor(const std::vector<uint> dimensions) {
+        reshape(dimensions);
     }
 
 
@@ -101,19 +105,19 @@ namespace ATRG {
      * change the dimension of the tensor
      */
     template <class T>
-    void Tensor<T>::reshape(const std::vector<uint> dim) {
-        order = dim.size();
-        this->dim = dim;
+    void Tensor<T>::reshape(const std::vector<uint> dimensions) {
+        order = dimensions.size();
+        this->dimensions = dimensions;
 
-        // last element filled with dimtot (for efficiency of algorithms)
+        // last element filled with size (for efficiency of algorithms)
         base.resize(order + 1);
         base[0] = 1;
         for (decltype(order) i = 0; i < order; ++i) {
-            base[i + 1] = base[i] * dim[i];
+            base[i + 1] = base[i] * dimensions[i];
         }
 
-        dimtot = base[order];
-        t.resize(dimtot);
+        size = base[order];
+        t.resize(size);
     }
 
 
@@ -121,16 +125,16 @@ namespace ATRG {
      * change dimension of index k
      */
     template <class T>
-    void Tensor<T>::reshape(const uint k, const uint dk) {
+    void Tensor<T>::reshape(const uint k, const uint dimension) {
         // modify dim[k] and base from index k onwards
-        dim[k] = dk;
+        dimensions[k] = dimension;
 
         for (decltype(order) i = k; i < order; ++i) {
-            base[i + 1] = base[i] * dim[i];
+            base[i + 1] = base[i] * dimensions[i];
         }
 
-        dimtot = base[order];
-        t.resize(dimtot);
+        size = base[order];
+        t.resize(size);
     }
 
 
@@ -139,10 +143,11 @@ namespace ATRG {
      */
     template <class T>
     void Tensor<T>::print(std::ofstream &os) {
-        for(uint i = 0; i < dimtot; ++i) {
+        for(uint i = 0; i < size; ++i) {
             auto ind = multiindex(i);
 
             os << "[";
+
             for(uint j = 0; j < ind.size(); ++j) {
                 os << ind[j] << "\t";
             }
@@ -162,25 +167,14 @@ namespace ATRG {
 
 
     /**
-     * reset tensor to zero
-     */
-    template <class T>
-    void Tensor<T>::zero() {
-        t.assign(t.size(), 0);
-    }
-
-
-    /**
      * compute the square of the Frobenius norm of the tensor
      */
     template <class T>
-    T Tensor<T>::Frobnorm2() {
+    inline T Tensor<T>::Frobnorm2() {
         T F = 0;
 
-        for (decltype(t.size()) i = 0; i < t.size(); ++i) {
-            // norm gives the square!
-            F += std::norm(t[i]);
-        }
+        // std::norm returns the square!
+        std::for_each(std::begin(t), std::end(t), [&F](T &element) {F += std::norm(element);});
 
         return F;
     }
@@ -190,7 +184,7 @@ namespace ATRG {
      * ocmpute the Frobenius norm of the tensor
      */
     template <class T>
-    T Tensor<T>::Frobnorm() {
+    inline T Tensor<T>::Frobnorm() {
         return std::sqrt(Frobnorm2());
     }
 
@@ -199,14 +193,17 @@ namespace ATRG {
      * returns the largest element in the tensor
      */
     template <class T>
-    T Tensor<T>::max() {
-         T maxt = 0;
+    inline T Tensor<T>::max() {
+         return std::max(std::begin(t), std::end(t), [](T &a, T &b) {return std::abs(a) > std::abs(b);});
+    }
 
-         for (decltype(t.size()) i = 0; i < t.size(); ++i) {
-             maxt = std::max(maxt, abs(t[i]));
-         }
 
-         return maxt;
+    /**
+     * reset tensor to zero
+     */
+    template <class T>
+    inline void Tensor<T>::fill(const T value) {
+        std::fill(std::begin(t), std::end(t), value);
     }
 
 
@@ -214,10 +211,8 @@ namespace ATRG {
      * rescale every element of the tensor with the given factor
      */
     template <class T>
-    void Tensor<T>::rescale(const T s) {
-        for (decltype(t.size()) i = 0; i < t.size(); ++i) {
-            t[i] /= s;
-        }
+    inline void Tensor<T>::rescale(const T s) {
+        t *= s;
     }
 
 
@@ -225,14 +220,14 @@ namespace ATRG {
      * compute flat index (index in t) given all tensor indices as I = sum_i index(i)*base(i)
      */
     template <class T>
-    uint Tensor<T>::flatindex(const std::vector<uint> index) {
-        uint tot_index = 0;
+    inline uint Tensor<T>::flatindex(const std::vector<uint> index) {
+        uint flatindex = 0;
 
         for (decltype(order) i = 0; i < order; ++i) {
-            tot_index += index[i] * base[i];
+            flatindex += index[i] * base[i];
         }
 
-        return tot_index;
+        return flatindex;
     }
 
 
@@ -240,7 +235,7 @@ namespace ATRG {
      * compute the index vector from a flatindex
      */
     template <class T>
-    std::vector<uint> Tensor<T>::multiindex(uint flatindex) {
+    inline std::vector<uint> Tensor<T>::multiindex(uint flatindex) {
         std::vector<uint> index(order);
         auto rest = flatindex;
 
@@ -259,27 +254,47 @@ namespace ATRG {
      * flatten tensor into a k-flattened matrix
      */
     template <class T>
-    void Tensor<T>::flatten(const uint k, arma::Mat<T> &flatk) {
+    inline void Tensor<T>::flatten(const uint index, arma::Mat<T> &flat) {
         // use one index as first matrix index and the combination of all other indices as the second
-        flatk.set_size(dim[k], dimtot / dim[k]);
+        flat.set_size(dimensions[index], size / dimensions[index]);
 
         // reshape complete tensor to a k-flattened matrix
         uint basecol = 0;
         // step-size for index k
-        uint block = base[k];
+        uint block = base[index];
         // dim[k] * block
-        uint blocksize = base[k + 1]; // for any k (also k == order - 1)
+        uint blocksize = base[index + 1]; // for any k (also k == order - 1)
 
         // iterate through total vector, starting with row = 0 and col = 0
         // fill row 0 of output matrix till base[k] is reached
 
-        for (decltype(dimtot) index = 0; index < dimtot; index += blocksize) {
+        for (decltype(size) i = 0; i < size; i += blocksize) {
             // block-copy, the rhs matrix uses the t-vector storage as its own
-            flatk.cols(basecol, basecol + block - 1)
+            flat.cols(basecol, basecol + block - 1)
                     //             ptr to mem, rows, cols, copy mem, strict?
-                    = arma::Mat<T>(&t[index], block, dim[k], false, true).t();
+                    = arma::Mat<T>(&t[i], block, dimensions[index], false, true).t();
             basecol += block;
         }
+    }
+
+
+    /**
+     * flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
+     */
+    template <class T>
+    inline void Tensor<T>::flatten(std::vector<uint> indices, arma::Mat<T> &flat) {
+        auto n_rows = 1;
+        auto n_cols = 1;
+
+        for(uint i = 0; i < order; ++i) {
+            if(std::any_of(indices.begin(), indices.end(), [&i](uint index) {return index == i;})) {
+                n_rows *= dimensions[i];
+            } else {
+                n_cols *= dimensions[i];
+            }
+        }
+
+        flat.resize(n_rows, n_cols);
     }
 
 
@@ -288,26 +303,35 @@ namespace ATRG {
      * using the block-copy algorithm, this is just the reverse of flattening
      */
     template <class T>
-    void Tensor<T>::inflate(const uint k, const arma::Mat<T> &flatk) {
-        if ((flatk.n_rows > dim[k]) || (flatk.n_cols != dimtot / dim[k])) {
-            std::cerr << "Inflate error: inconsistent matrix size" << std::endl;
+    inline void Tensor<T>::inflate(const uint index, const arma::Mat<T> &flat) {
+        if ((flat.n_rows > dimensions[index]) || (flat.n_cols != size / dimensions[index])) {
+            std::cerr << "  In ATRG::Tensor<T>::inflate: dimensions of flat matrix and tensor don't match!" << std::endl;
             exit(0);
         }
 
-        if (flatk.n_rows < dim[k]) {
-            reshape(k, flatk.n_rows);
+        if (flat.n_rows < dimensions[index]) {
+            reshape(index, flat.n_rows);
         }
 
         uint basecol = 0;
-        uint block = base[k];
-        uint blocksize = base[k + 1]; // for any k (also k==order-1)
+        uint block = base[index];
+        uint blocksize = base[index + 1]; // for any k (also k==order-1)
 
-        for (decltype(dimtot) index = 0; index < dimtot; index += blocksize) {
+        for (decltype(size) i = 0; i < size; i += blocksize) {
             // block-copy, the rhs matrix uses the t-vector storage as its own
             // delicate statement as we fill a static matrix in the storage space of our tensor
-            arma::Mat<T>(&t[index], block, dim[k], false, true) = flatk.cols(basecol, basecol + block - 1).t();
+            arma::Mat<T>(&t[i], block, dimensions[index], false, true) = flat.cols(basecol, basecol + block - 1).t();
             basecol += block;
         }
+    }
+
+
+    /**
+     * inflate the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
+     */
+    template <class T>
+    inline void Tensor<T>::inflate(std::vector<uint> indices, arma::Mat<T> &flat) {
+
     }
     
 }

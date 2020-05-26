@@ -1,13 +1,14 @@
 #include <iostream>
+#include <tuple>
 #include <random>
 #include <chrono>
 
 #define ARMA_DONT_USE_WRAPPER
 #include <armadillo>
-#include <omp.h>
 
 #include <atrg.h>
 #include <tensor.h>
+#include <svd.h>
 
 
 /**
@@ -18,30 +19,24 @@ void random_Tensor(ATRG::Tensor<T> &tensor, std::mt19937_64 &generator) {
 
     std::normal_distribution<T> distribution(0, 1);
 
-    for(uint i = 0; i < tensor.size(); ++i) {
+    for(uint i = 0; i < tensor.get_size(); ++i) {
         tensor(i) = distribution(generator);
     }
 }
 
 
-
 /**
- * Compute the resiudal of a SVD decomposition
+ * give a simple tensor with an easy to compute SVD
  */
 template <typename T>
-T residual_svd(const arma::Mat<T> &matrix, const arma::Col<T> &S, const arma::Mat<T> &U, const arma::Mat<T> &V) {
-    arma::Mat<T> matrix_svd(U.n_rows, S.n_elem, arma::fill::zeros);
-
-    for(uint j = 0; j < U.n_rows; ++j) {
-        // multiplicate element-wise
-        matrix_svd.row(j) = U.row(j) % S.t();
-    }
-
-    matrix_svd *= V.t();
-
-    return arma::norm(matrix - matrix_svd, "fro") / arma::norm(matrix, "fro");
+void example_Tensor(ATRG::Tensor<T> &tensor) {
+    tensor.reshape({4, 5});
+    tensor.fill(0);
+    tensor({0, 0}) = 1;
+    tensor({0, 4}) = 2;
+    tensor({1, 2}) = 3;
+    tensor({3, 1}) = 2;
 }
-
 
 
 /**
@@ -64,7 +59,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    ATRG::svd:" << std::endl;
     auto starttime_svd = std::chrono::high_resolution_clock::now();
 
-    ATRG::svd(flatk, U, V, S);
+    std::cout << "    relative truncation error: " << ATRG::svd(flatk, U, V, S) << std::endl;
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -72,7 +67,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
                  .count() / 1e3
               << " seconds" << std::endl;
 
-    std::cout << "    residual: " << residual_svd(flatk, S, U, V) << std::endl;;
+    std::cout << "    residual: " << ATRG::residual_svd(flatk, S, U, V) << std::endl;;
     std::cout << S << std::endl << " -----" << std::endl;
     //std::cout << U << std::endl << std::endl << V << std::endl;
 
@@ -150,15 +145,34 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({10, 5});
+    ATRG::Tensor<double> tensor({10, 10, 10, 10});
     random_Tensor(tensor, generator);
+    //example_Tensor(tensor);
+
 
     std::cout << "  generated random tensor..." << std::endl;
 
     //=============================================================================================
 
-    test_svds(tensor);
+    //test_svds(tensor);
 
+    //=============================================================================================
+
+    std::cout << "  computing logZ:" << std::endl;
+
+    // compute log(Z) on a 4x4 lattice
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
+
+    /**
+     * C++11 version:
+     *
+     * double logZ, error_logZ, residual_error_logZ;
+     * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
+     */
+
+    std::cout << "    logZ:            " << logZ << std::endl;
+    std::cout << "    relative error:  " << error_logZ << std::endl;
+    std::cout << "    residual error:  " << residual_error_logZ << std::endl;
 
     //==============================================================================================
 

@@ -7,17 +7,23 @@
 namespace ATRG {
 
     /**
-     * compute SVD by means of the eigenvalues of Q
+     * compute SVD by means of the eigenvalues of Q or with armadillos own svd function
      * return the error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
-        arma::eig_sym(S, V, Q.t() * Q);
-        V = arma::reverse(V, 1);
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const bool armadillo = true) {
+        if(armadillo) {
+            arma::svd(U, S, V, Q, "dc");
+        } else {
+            arma::eig_sym(S, V, Q.t() * Q);
+            V = arma::reverse(V, 1);
 
-        arma::eig_sym(S, U, Q * Q.t());   // stored in ascending order in Armadillo
-        U = arma::reverse(U, 1);
-        S = arma::reverse(S, 0);
+            arma::eig_sym(S, U, Q * Q.t());   // stored in ascending order in Armadillo
+            U = arma::reverse(U, 1);
+            S = arma::reverse(S, 0);
+
+            S.for_each([](T &element) {element = std::sqrt(element);});
+        }
 
         // compute the error from the squared singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S);
@@ -25,8 +31,6 @@ namespace ATRG {
         S.resize(D);
         U.resize(U.n_rows, S.n_elem);
         V.resize(V.n_rows, S.n_elem);
-
-        S.for_each([](T &element) {element = std::sqrt(element);});
 
         // sum of all squared singular values - sum of discarded squared singular vectors
         //      / sum of all squared singular vectors

@@ -37,9 +37,9 @@ namespace ATRG {
         uint flatindex(const std::vector<uint> index);
         std::vector<uint> multiindex(const uint flatindex);
         void flatten(const uint index, arma::Mat<T> &flat);
-        void flatten(const std::vector<uint> indices, arma::Mat<T> &flat);
+        void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
         void inflate(const uint index, const arma::Mat<T> &flat);
-        void inflate(const std::vector<uint> indices, arma::Mat<T> &flat);
+        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
 
         uint get_size() const { return size; }
         uint get_order() const { return order; }
@@ -282,19 +282,37 @@ namespace ATRG {
      * flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
      */
     template <class T>
-    inline void Tensor<T>::flatten(std::vector<uint> indices, arma::Mat<T> &flat) {
+    inline void Tensor<T>::flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+        if(indices_rows.size() + indices_columns.size() != order) {
+            std::cerr << "  In ATRG::Tensor<T>::flatten: given more indices than the tensor has!" << std::endl;
+            throw 0;
+        }
+
+        if(std::any_of(indices_rows.begin(), indices_rows.end(), [this](auto &index) {return index >= order || index < 0;})
+            || std::any_of(indices_columns.begin(), indices_columns.end(), [this](auto &index) {return index >= order || index < 0;})) {
+
+            std::cerr << "  In ATRG::Tensor<t>::flatten: requested non-existent index!" << std::endl;
+        }
+
         auto n_rows = 1;
         auto n_cols = 1;
 
-        for(uint i = 0; i < order; ++i) {
-            if(std::any_of(indices.begin(), indices.end(), [&i](uint index) {return index == i;})) {
-                n_rows *= dimensions[i];
-            } else {
-                n_cols *= dimensions[i];
-            }
-        }
+        std::for_each(indices_rows.begin(), indices_rows.end(), [&n_rows, this](auto &index) {n_rows *= dimensions[index];});
+        std::for_each(indices_columns.begin(), indices_columns.end(), [&n_cols, this](auto &index) {n_cols *= dimensions[index];});
 
         flat.resize(n_rows, n_cols);
+
+        /**
+         * if both vectors of indices are sorted and the column vector picks up where the row vector ended,
+         * we can use t as it is.
+         * e.g.: {0 1 2}, {3 4}
+         */
+        if(std::is_sorted(indices_rows.begin(), indices_rows.end())
+            && std::is_sorted(indices_columns.begin(), indices_columns.end())
+            && *(indices_rows.end() - 1) + 1 == *(indices_columns.begin())) {
+
+            flat = arma::Mat<T>(&t[0], n_rows, n_cols, false, true);
+        }
     }
 
 
@@ -306,7 +324,7 @@ namespace ATRG {
     inline void Tensor<T>::inflate(const uint index, const arma::Mat<T> &flat) {
         if ((flat.n_rows > dimensions[index]) || (flat.n_cols != size / dimensions[index])) {
             std::cerr << "  In ATRG::Tensor<T>::inflate: dimensions of flat matrix and tensor don't match!" << std::endl;
-            exit(0);
+            throw 0;
         }
 
         if (flat.n_rows < dimensions[index]) {
@@ -330,8 +348,30 @@ namespace ATRG {
      * inflate the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
      */
     template <class T>
-    inline void Tensor<T>::inflate(std::vector<uint> indices, arma::Mat<T> &flat) {
+    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+        if(indices_rows.size() + indices_columns.size() != order) {
+            std::cerr << "  In ATRG::Tensor<T>::inflate: given more indices than the tensor has!" << std::endl;
+            throw 0;
+        }
 
+        if(std::any_of(indices_rows.begin(), indices_rows.end(), [this](auto &index) {return index >= order || index < 0;})
+            || std::any_of(indices_columns.begin(), indices_columns.end(), [this](auto &index) {return index >= order || index < 0;})) {
+
+            std::cerr << "  In ATRG::Tensor<t>::inflate: requested non-existent index!" << std::endl;
+        }
+
+
+        /**
+         * if both vectors of indices are sorted and the column vector picks up where the row vector ended,
+         * we can use flat as it is.
+         * e.g.: {0 1 2}, {3 4}
+         */
+        if(std::is_sorted(indices_rows.begin(), indices_rows.end())
+            && std::is_sorted(indices_columns.begin(), indices_columns.end())
+            && *(indices_rows.end() - 1) + 1 == *(indices_columns.begin())) {
+
+            arma::Mat<T>(&t[0], flat.n_rows, flat.n_cols, false, true) = flat;
+        }
     }
     
 }

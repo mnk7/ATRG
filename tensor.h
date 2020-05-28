@@ -2,7 +2,6 @@
 #define TENSOR_H
 
 #include <iostream>
-#include <fstream>
 #include <vector>
 #include <valarray>
 #include <algorithm>
@@ -23,8 +22,9 @@ namespace ATRG {
 
         void reshape(const std::vector<uint> dimensions);
         void reshape(const uint index, const uint dimension);
+        void reorder(const std::vector<uint> new_order_indices);
 
-        void print(std::ofstream &os);
+        void print(std::ostream &os);
         void print();
 
         T Frobnorm2();
@@ -34,7 +34,9 @@ namespace ATRG {
         void fill(const T value);
         void rescale(const T s);
 
+        uint flatindex(const std::vector<uint> index, std::vector<uint> &base);
         uint flatindex(const std::vector<uint> index);
+        std::vector<uint> multiindex(const uint flatindex, std::vector<uint> &base);
         std::vector<uint> multiindex(const uint flatindex);
         void flatten(const uint index, arma::Mat<T> &flat);
         void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
@@ -139,21 +141,73 @@ namespace ATRG {
 
 
     /**
+     * reorder the tensor indices
+     */
+    template <class T>
+    void Tensor<T>::reorder(const std::vector<uint> new_order_indices) {
+        auto new_order_indices_copy(new_order_indices);
+        std::sort(new_order_indices_copy.begin(), new_order_indices_copy.end());
+        auto last = std::unique(new_order_indices_copy.begin(), new_order_indices_copy.end());
+
+        if(last != new_order_indices_copy.end()) {
+            std::cerr << "  In ATRG::Tensor<T>::reorder: duplicate indices given!" << std::endl;
+            throw 0;
+        }
+
+        if(std::any_of(new_order_indices_copy.begin(), new_order_indices_copy.end(), [this](auto &index) {return index >= order || index < 0;})) {
+            std::cerr << "  In ATRG::Tensor<T>::reorder: requested non-existent index!" << std::endl;
+            throw 0;
+        }
+
+        auto old_dimensions = dimensions;
+        auto old_base = base;
+        std::valarray<T> new_t(size);
+
+        for(decltype(new_order_indices.size()) i = 0; i < new_order_indices.size(); ++i) {
+            dimensions[i] = old_dimensions[new_order_indices[i]];
+        }
+
+        base[0] = 1;
+        for (decltype(order) i = 0; i < order; ++i) {
+            base[i + 1] = base[i] * dimensions[i];
+        }
+
+        #pragma omp parallel for
+        for(decltype(size) i = 0; i < size; ++i) {
+            auto new_indices = multiindex(i);
+            decltype(new_indices) old_indices(new_indices.size());
+
+            for(decltype(new_indices.size()) j = 0; j < new_indices.size(); ++j) {
+                old_indices[new_order_indices[j]] = new_indices[j];
+            }
+
+            new_t[i] = t[flatindex(old_indices, old_base)];
+        }
+
+        t = new_t;
+    }
+
+
+    /**
      * print the tensor in a readable way
      */
     template <class T>
-    void Tensor<T>::print(std::ofstream &os) {
+    void Tensor<T>::print(std::ostream &os) {
+        std::cout << "Printing tensor:" << std::endl;
+
         for(uint i = 0; i < size; ++i) {
             auto ind = multiindex(i);
 
-            os << "[";
+            os << "\t[";
 
-            for(uint j = 0; j < ind.size(); ++j) {
+            for(decltype(ind.size()) j = 0; j < ind.size() - 1; ++j) {
                 os << ind[j] << "\t";
             }
 
-            os << "] = " << t[i] << std::endl;
+            os << ind.back() << "] = " << t[i] << std::endl;
         }
+
+        std::cout << std::endl;
     }
 
 
@@ -217,13 +271,14 @@ namespace ATRG {
 
 
     /**
-     * compute flat index (index in t) given all tensor indices as I = sum_i index(i)*base(i)
+     * compute flat index (index in t) given the indices of all modes
      */
     template <class T>
-    inline uint Tensor<T>::flatindex(const std::vector<uint> index) {
+    inline uint Tensor<T>::flatindex(const std::vector<uint> index, std::vector<uint> &base) {
         uint flatindex = 0;
 
-        for (decltype(order) i = 0; i < order; ++i) {
+        // the last entry in base contains the total number of elements
+        for (decltype(base.size()) i = 0; i < base.size() - 1; ++i) {
             flatindex += index[i] * base[i];
         }
 
@@ -231,15 +286,22 @@ namespace ATRG {
     }
 
 
+    template <class T>
+    inline uint Tensor<T>::flatindex(const std::vector<uint> index) {
+        return flatindex(index, base);
+    }
+
+
     /**
      * compute the index vector from a flatindex
+     * base has to contain the total number of elements in its last entry!
      */
     template <class T>
-    inline std::vector<uint> Tensor<T>::multiindex(uint flatindex) {
-        std::vector<uint> index(order);
+    inline std::vector<uint> Tensor<T>::multiindex(uint flatindex, std::vector<uint> &base) {
+        std::vector<uint> index(base.size() - 1);
         auto rest = flatindex;
 
-        for(uint i = order - 1; i >= 1; --i) {
+        for(uint i = base.size() - 2; i >= 1; --i) {
             index[i] = rest / base[i];
             rest %= base[i];
         }
@@ -247,6 +309,12 @@ namespace ATRG {
         index[0] = rest;
 
         return index;
+    }
+
+
+    template <class T>
+    inline std::vector<uint> Tensor<T>::multiindex(uint flatindex) {
+        return multiindex(flatindex, base);
     }
 
 
@@ -279,7 +347,9 @@ namespace ATRG {
 
 
     /**
-     * flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
+     * Flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns.
+     *
+     * !!! This function may return the tensors own memory, so its integrity is not guarantied after calling it !!!
      */
     template <class T>
     inline void Tensor<T>::flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
@@ -288,31 +358,79 @@ namespace ATRG {
             throw 0;
         }
 
-        if(std::any_of(indices_rows.begin(), indices_rows.end(), [this](auto &index) {return index >= order || index < 0;})
-            || std::any_of(indices_columns.begin(), indices_columns.end(), [this](auto &index) {return index >= order || index < 0;})) {
+        std::vector<uint> all_indices(indices_rows);
+        all_indices.insert(all_indices.end(), indices_columns.begin(), indices_columns.end());
 
-            std::cerr << "  In ATRG::Tensor<t>::flatten: requested non-existent index!" << std::endl;
+        // watch out for duplicates:
+        auto all_indices_copy(all_indices);
+        std::sort(all_indices_copy.begin(), all_indices_copy.end());
+        auto last = std::unique(all_indices_copy.begin(), all_indices_copy.end());
+
+        if(last != all_indices_copy.end()) {
+            std::cerr << "  In ATRG::Tensor<T>::flatten: duplicate indices given!" << std::endl;
+            throw 0;
         }
 
-        auto n_rows = 1;
-        auto n_cols = 1;
+        if(std::any_of(all_indices.begin(), all_indices.end(), [this](auto &index) {return index >= order || index < 0;})) {
+            std::cerr << "  In ATRG::Tensor<T>::flatten: requested non-existent index!" << std::endl;
+            throw 0;
+        }
 
-        std::for_each(indices_rows.begin(), indices_rows.end(), [&n_rows, this](auto &index) {n_rows *= dimensions[index];});
-        std::for_each(indices_columns.begin(), indices_columns.end(), [&n_cols, this](auto &index) {n_cols *= dimensions[index];});
+        uint n_rows = 1;
+        uint n_cols = 1;
+
+        // create bases to compute the indices of the tensor elements in the flat matrix
+        // the last entry contains the total number of elements
+        std::vector<uint> base_rows(indices_rows.size() + 1, 1);
+        std::vector<uint> base_cols(indices_columns.size() + 1, 1);
+
+        for(decltype(indices_rows.size()) i = 0; i < indices_rows.size(); ++i) {
+            n_rows *= dimensions[indices_rows[i]];
+            base_rows[i + 1] = base_rows[i] * dimensions[indices_rows[i]];
+        }
+
+        for(decltype(indices_columns.size()) i = 0; i < indices_columns.size(); ++i) {
+            n_cols *= dimensions[indices_columns[i]];
+            base_cols[i + 1] = base_cols[i] * dimensions[indices_columns[i]];
+        }
 
         flat.resize(n_rows, n_cols);
 
-        /**
+        /*
          * if both vectors of indices are sorted and the column vector picks up where the row vector ended,
          * we can use t as it is.
          * e.g.: {0 1 2}, {3 4}
          */
-        if(std::is_sorted(indices_rows.begin(), indices_rows.end())
-            && std::is_sorted(indices_columns.begin(), indices_columns.end())
-            && *(indices_rows.end() - 1) + 1 == *(indices_columns.begin())) {
-
+        if(std::is_sorted(all_indices.begin(), all_indices.end())) {
             flat = arma::Mat<T>(&t[0], n_rows, n_cols, false, true);
+            return;
         }
+
+
+        /*
+         * naive case: compute the position of every tensor element in the flat matrix
+         */
+        #pragma omp parallel for
+        for(decltype(size) i = 0; i < size; ++i) {
+            auto tensor_indices = multiindex(i);
+
+            uint row_index = 0;
+            uint col_index = 0;
+
+            /*
+             * get the tensor indices in the ordering given by indices_rows and compute the position in the matrix row with the base from above
+             */
+            for(decltype(indices_rows.size()) j = 0; j < indices_rows.size(); ++j) {
+                row_index += tensor_indices[indices_rows[j]] * base_rows[j];
+            }
+
+            for(decltype(indices_columns.size()) j = 0; j < indices_columns.size(); ++j) {
+                col_index += tensor_indices[indices_columns[j]] * base_cols[j];
+            }
+
+            flat(row_index, col_index) = t[i];
+        }
+
     }
 
 
@@ -354,23 +472,71 @@ namespace ATRG {
             throw 0;
         }
 
-        if(std::any_of(indices_rows.begin(), indices_rows.end(), [this](auto &index) {return index >= order || index < 0;})
-            || std::any_of(indices_columns.begin(), indices_columns.end(), [this](auto &index) {return index >= order || index < 0;})) {
+        std::vector<uint> all_indices(indices_rows);
+        all_indices.insert(all_indices.end(), indices_columns.begin(), indices_columns.end());
 
-            std::cerr << "  In ATRG::Tensor<t>::inflate: requested non-existent index!" << std::endl;
+        // watch out for duplicates:
+        auto all_indices_copy(all_indices);
+        std::sort(all_indices_copy.begin(), all_indices_copy.end());
+        auto last = std::unique(all_indices_copy.begin(), all_indices_copy.end());
+
+        if(last != all_indices_copy.end()) {
+            std::cerr << "  In ATRG::Tensor<T>::inflate: duplicate indices given!" << std::endl;
+            throw 0;
+        }
+
+        if(std::any_of(all_indices.begin(), all_indices.end(), [this](auto &index) {return index >= order || index < 0;})) {
+            std::cerr << "  In ATRG::Tensor<T>::inflate: requested non-existent index!" << std::endl;
         }
 
 
-        /**
+        /*
          * if both vectors of indices are sorted and the column vector picks up where the row vector ended,
          * we can use flat as it is.
          * e.g.: {0 1 2}, {3 4}
          */
-        if(std::is_sorted(indices_rows.begin(), indices_rows.end())
-            && std::is_sorted(indices_columns.begin(), indices_columns.end())
-            && *(indices_rows.end() - 1) + 1 == *(indices_columns.begin())) {
-
+        if(std::is_sorted(all_indices.begin(), all_indices.end())) {
             arma::Mat<T>(&t[0], flat.n_rows, flat.n_cols, false, true) = flat;
+            return;
+        }
+
+
+        /*
+         * naive case: compute the position of every tensor element in the flat matrix
+         */
+        // create bases to compute the indices of the tensor elements in the flat matrix
+        // the last entry contains the total number of elements
+        std::vector<uint> base_rows(indices_rows.size() + 1, 1);
+        std::vector<uint> base_cols(indices_columns.size() + 1, 1);
+
+        for(decltype(indices_rows.size()) i = 0; i < indices_rows.size(); ++i) {
+            base_rows[i + 1] = base_rows[i] * dimensions[indices_rows[i]];
+        }
+
+        for(decltype(indices_columns.size()) i = 0; i < indices_columns.size(); ++i) {
+            base_cols[i + 1] = base_cols[i] * dimensions[indices_columns[i]];
+        }
+
+
+        #pragma omp parallel for
+        for(decltype(size) i = 0; i < size; ++i) {
+            auto tensor_indices = multiindex(i);
+
+            uint row_index = 0;
+            uint col_index = 0;
+
+            /*
+             * get the tensor indices in the ordering given by indices_rows and compute the position in the matrix row with the base from above
+             */
+            for(decltype(indices_rows.size()) j = 0; j < indices_rows.size(); ++j) {
+                row_index += tensor_indices[indices_rows[j]] * base_rows[j];
+            }
+
+            for(decltype(indices_columns.size()) j = 0; j < indices_columns.size(); ++j) {
+                col_index += tensor_indices[indices_columns[j]] * base_cols[j];
+            }
+
+            t[i] = flat(row_index, col_index);
         }
     }
     

@@ -162,6 +162,83 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
     tensor.flatten(null_to_dim_indices, dim_to_order_indices, endpoint);
 
     std::cout << "    f-b flatten and inflate deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl;
+
+
+
+    std::cout << "    naive flattening:" << std::endl;
+    // testing naive flattening and naive inflating:
+    ATRG::Tensor<int> simple_tensor({2, 3, 4});
+    for(uint i = 0; i < simple_tensor.get_size(); ++i) {
+        simple_tensor(i) = i + 1;
+    }
+
+    simple_tensor.print();
+
+    arma::Mat<int> flat_int;
+
+    simple_tensor.flatten({1, 0}, {2}, flat_int);
+
+    std::cout << flat_int << std::endl;
+
+    simple_tensor.inflate({1, 0}, {2}, flat_int);
+
+    int difference = 0;
+    for(uint i = 0; i < simple_tensor.get_size(); ++i) {
+        difference += simple_tensor(i) - (i + 1);
+    }
+
+    std::cout << "    difference after inflation: " << difference << std::endl;
+
+
+
+    std::cout << "    test reorder:" << std::endl;
+
+    simple_tensor.reorder({2, 0, 1});
+    simple_tensor.reorder({2, 0, 1});
+    simple_tensor.reorder({2, 0, 1});
+
+    simple_tensor.print();
+
+    difference = 0;
+    for(uint i = 0; i < simple_tensor.get_size(); ++i) {
+        difference += simple_tensor(i) - (i + 1);
+    }
+
+    std::cout << "    difference after reordering: " << difference << std::endl;
+}
+
+
+void performance_test_flatten_inflate(std::mt19937_64 &generator) {
+    ATRG::Tensor<double> tensor({30, 30, 30, 30, 30, 30});
+    random_Tensor(tensor, generator);
+
+    arma::Mat<double> flat;
+
+
+    auto starttime = std::chrono::high_resolution_clock::now();
+
+    tensor.flatten({1, 3}, {0, 2, 4, 5}, flat);
+
+    std::cout << "    Runtime: " <<
+                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - starttime)
+                 .count() / 1e3
+              << " seconds" << std::endl;
+
+    std::cout << "      __flat__" << std::endl;
+
+
+    starttime = std::chrono::high_resolution_clock::now();
+
+    tensor.inflate({1, 3}, {0, 2, 4, 5}, flat);
+
+    std::cout << "    Runtime: " <<
+                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - starttime)
+                 .count() / 1e3
+              << " seconds" << std::endl;
+
+    std::cout << "      OOinflatedOO" << std::endl;
 }
 
 
@@ -186,7 +263,8 @@ int main(int argc, char **argv) {
     //=============================================================================================
 
     //test_svds(tensor);
-    test_flatten_and_inflate(tensor);
+    //test_flatten_and_inflate(tensor);
+    //performance_test_flatten_inflate(generator);
 
     //=============================================================================================
 

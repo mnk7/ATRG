@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <vector>
-#include <valarray>
 #include <algorithm>
 
 #include <armadillo>
@@ -31,16 +30,16 @@ namespace ATRG {
         T Frobnorm();
 
         T max();
-        void fill(const T value);
+        void zero();
         void rescale(const T s);
 
         uint flatindex(const std::vector<uint> index, std::vector<uint> &base);
         uint flatindex(const std::vector<uint> index);
         std::vector<uint> multiindex(const uint flatindex, std::vector<uint> &base);
         std::vector<uint> multiindex(const uint flatindex);
-        void flatten(const uint index, arma::Mat<T> &flat);
+        void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat);
         void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
-        void inflate(const uint index, const arma::Mat<T> &flat);
+        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat);
         void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
 
         uint get_size() const { return size; }
@@ -49,26 +48,23 @@ namespace ATRG {
         std::vector<uint> get_dimensions() { return dimensions; }
         uint get_base(const uint i) const { return base[i]; }
 
-        T* data() { return &t[0]; }
+        arma::SpMat<T>& data() { return t; }
 
 
-        T& operator()(const uint flatindex) {
-            return t[flatindex];
+        T operator()(const uint flatindex) {
+            return t(flatindex);
         }
-        const T& operator()(const uint flatindex) const {
-            return t[flatindex];
+
+        void set(const uint flatindex, T value) {
+            t(flatindex) = value;
         }
-        T& operator()(const std::vector<uint>& index) {
-            return t[flatindex(index)];
+
+        T operator()(const std::vector<uint>& index) {
+            return t(flatindex(index));
         }
-        const T& operator()(const std::vector<uint>& index) const {
-            return t[flatindex(index)];
-        }
-        std::valarray<T>& operator()(const std::slice& s) {
-            return t[s];
-        }
-        std::valarray<T>& operator()(const std::slice& s) const {
-            return t[s];
+
+        void set(const std::vector<uint>& index, T value) {
+            t(flatindex(index)) = value;
         }
 
         friend std::ostream &operator<<(std::ostream &out, Tensor<T> &t) {
@@ -86,7 +82,7 @@ namespace ATRG {
         // dimensions of each index
         std::vector<uint> dimensions;
         // tensor content
-        std::valarray<T> t;
+        arma::SpMat<T> t;
         // base factor for each index -> hypercube for elements of the indices
         std::vector<uint> base;
     };
@@ -119,7 +115,7 @@ namespace ATRG {
         }
 
         size = base[order];
-        t.resize(size);
+        t.set_size(size);
     }
 
 
@@ -136,7 +132,7 @@ namespace ATRG {
         }
 
         size = base[order];
-        t.resize(size);
+        t.set_size(size);
     }
 
 
@@ -161,7 +157,7 @@ namespace ATRG {
 
         auto old_dimensions = dimensions;
         auto old_base = base;
-        std::valarray<T> new_t(size);
+        arma::SpMat<T> new_t(size, 1);
 
         for(decltype(new_order_indices.size()) i = 0; i < new_order_indices.size(); ++i) {
             dimensions[i] = old_dimensions[new_order_indices[i]];
@@ -172,16 +168,16 @@ namespace ATRG {
             base[i + 1] = base[i] * dimensions[i];
         }
 
-        #pragma omp parallel for
-        for(decltype(size) i = 0; i < size; ++i) {
-            auto new_indices = multiindex(i);
-            decltype(new_indices) old_indices(new_indices.size());
+
+        for(decltype(t.begin()) element = t.begin(); element != t.end(); ++element) {
+            auto old_indices = multiindex(element.row(), old_base);
+            decltype(old_indices) new_indices(old_indices.size());
 
             for(decltype(new_indices.size()) j = 0; j < new_indices.size(); ++j) {
-                old_indices[new_order_indices[j]] = new_indices[j];
+                new_indices[j] = old_indices[new_order_indices[j]];
             }
 
-            new_t[i] = t[flatindex(old_indices, old_base)];
+            new_t(flatindex(new_indices)) = *element;
         }
 
         t = new_t;
@@ -198,13 +194,13 @@ namespace ATRG {
         for(uint i = 0; i < size; ++i) {
             auto ind = multiindex(i);
 
-            os << "\t[";
+            os << "       [";
 
             for(decltype(ind.size()) j = 0; j < ind.size() - 1; ++j) {
                 os << ind[j] << "\t";
             }
 
-            os << ind.back() << "] = " << t[i] << std::endl;
+            os << ind.back() << "] = " << t(i) << std::endl;
         }
 
         std::cout << std::endl;
@@ -227,8 +223,7 @@ namespace ATRG {
     inline T Tensor<T>::Frobnorm2() {
         T F = 0;
 
-        // std::norm returns the square!
-        std::for_each(std::begin(t), std::end(t), [&F](T &element) {F += std::norm(element);});
+        t.for_each([&F](T &element) {F += arma::abs(element) * arma::abs(element);});
 
         return F;
     }
@@ -248,7 +243,7 @@ namespace ATRG {
      */
     template <class T>
     inline T Tensor<T>::max() {
-         return std::max(std::begin(t), std::end(t), [](T &a, T &b) {return std::abs(a) > std::abs(b);});
+         return t.max();
     }
 
 
@@ -256,8 +251,8 @@ namespace ATRG {
      * reset tensor to zero
      */
     template <class T>
-    inline void Tensor<T>::fill(const T value) {
-        std::fill(std::begin(t), std::end(t), value);
+    inline void Tensor<T>::zero() {
+        t.clean(0);
     }
 
 
@@ -301,7 +296,7 @@ namespace ATRG {
         std::vector<uint> index(base.size() - 1);
         auto rest = flatindex;
 
-        for(uint i = base.size() - 2; i >= 1; --i) {
+        for(int i = base.size() - 2; i >= 1; --i) {
             index[i] = rest / base[i];
             rest %= base[i];
         }
@@ -319,40 +314,10 @@ namespace ATRG {
 
 
     /**
-     * flatten tensor into a k-flattened matrix
-     */
-    template <class T>
-    inline void Tensor<T>::flatten(const uint index, arma::Mat<T> &flat) {
-        // use one index as first matrix index and the combination of all other indices as the second
-        flat.set_size(dimensions[index], size / dimensions[index]);
-
-        // reshape complete tensor to a k-flattened matrix
-        uint basecol = 0;
-        // step-size for index k
-        uint block = base[index];
-        // dim[k] * block
-        uint blocksize = base[index + 1]; // for any k (also k == order - 1)
-
-        // iterate through total vector, starting with row = 0 and col = 0
-        // fill row 0 of output matrix till base[k] is reached
-
-        for (decltype(size) i = 0; i < size; i += blocksize) {
-            // block-copy, the rhs matrix uses the t-vector storage as its own
-            flat.cols(basecol, basecol + block - 1)
-                    //             ptr to mem, rows, cols, copy mem, strict?
-                    = arma::Mat<T>(&t[i], block, dimensions[index], false, true).t();
-            basecol += block;
-        }
-    }
-
-
-    /**
      * Flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns.
-     *
-     * !!! This function may return the tensors own memory, so its integrity is not guarantied after calling it !!!
      */
     template <class T>
-    inline void Tensor<T>::flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+    inline void Tensor<T>::flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat) {
         if(indices_rows.size() + indices_columns.size() != order) {
             std::cerr << "  In ATRG::Tensor<T>::flatten: given more indices than the tensor has!" << std::endl;
             throw 0;
@@ -394,25 +359,24 @@ namespace ATRG {
             base_cols[i + 1] = base_cols[i] * dimensions[indices_columns[i]];
         }
 
-        flat.resize(n_rows, n_cols);
-
         /*
          * if both vectors of indices are sorted and the column vector picks up where the row vector ended,
          * we can use t as it is.
          * e.g.: {0 1 2}, {3 4}
          */
         if(std::is_sorted(all_indices.begin(), all_indices.end())) {
-            flat = arma::Mat<T>(&t[0], n_rows, n_cols, false, true);
+            flat = t;
+            flat.reshape(n_rows, n_cols);
             return;
         }
 
+        flat.resize(n_rows, n_cols);
 
         /*
          * naive case: compute the position of every tensor element in the flat matrix
          */
-        #pragma omp parallel for
-        for(decltype(size) i = 0; i < size; ++i) {
-            auto tensor_indices = multiindex(i);
+        for(decltype(t.begin()) element = t.begin(); element != t.end(); ++element) {
+            auto tensor_indices = multiindex(element.row());
 
             uint row_index = 0;
             uint col_index = 0;
@@ -428,37 +392,16 @@ namespace ATRG {
                 col_index += tensor_indices[indices_columns[j]] * base_cols[j];
             }
 
-            flat(row_index, col_index) = t[i];
+            flat(row_index, col_index) = *element;
         }
-
     }
 
 
-    /**
-     * inflate k-flattened matrix into tensor
-     * using the block-copy algorithm, this is just the reverse of flattening
-     */
     template <class T>
-    inline void Tensor<T>::inflate(const uint index, const arma::Mat<T> &flat) {
-        if ((flat.n_rows > dimensions[index]) || (flat.n_cols != size / dimensions[index])) {
-            std::cerr << "  In ATRG::Tensor<T>::inflate: dimensions of flat matrix and tensor don't match!" << std::endl;
-            throw 0;
-        }
+    inline void Tensor<T>::flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+        arma::SpMat<T> flat_sparse(flat);
 
-        if (flat.n_rows < dimensions[index]) {
-            reshape(index, flat.n_rows);
-        }
-
-        uint basecol = 0;
-        uint block = base[index];
-        uint blocksize = base[index + 1]; // for any k (also k==order-1)
-
-        for (decltype(size) i = 0; i < size; i += blocksize) {
-            // block-copy, the rhs matrix uses the t-vector storage as its own
-            // delicate statement as we fill a static matrix in the storage space of our tensor
-            arma::Mat<T>(&t[i], block, dimensions[index], false, true) = flat.cols(basecol, basecol + block - 1).t();
-            basecol += block;
-        }
+        flatten(indices_rows, indices_columns, flat_sparse);
     }
 
 
@@ -466,7 +409,12 @@ namespace ATRG {
      * inflate the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
      */
     template <class T>
-    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat) {
+        if(flat.n_elem != size) {
+            std::cerr << "  In ATRG::Tensor<T>::inflate: flat matrix has an incorrect size!" << std::endl;
+            throw 0;
+        }
+
         if(indices_rows.size() + indices_columns.size() != order) {
             std::cerr << "  In ATRG::Tensor<T>::inflate: given more indices than the tensor has!" << std::endl;
             throw 0;
@@ -496,7 +444,8 @@ namespace ATRG {
          * e.g.: {0 1 2}, {3 4}
          */
         if(std::is_sorted(all_indices.begin(), all_indices.end())) {
-            arma::Mat<T>(&t[0], flat.n_rows, flat.n_cols, false, true) = flat;
+            flat.reshape(size, 1);
+            t = flat;
             return;
         }
 
@@ -518,26 +467,36 @@ namespace ATRG {
         }
 
 
-        #pragma omp parallel for
-        for(decltype(size) i = 0; i < size; ++i) {
-            auto tensor_indices = multiindex(i);
-
-            uint row_index = 0;
-            uint col_index = 0;
+        for(decltype(flat.begin()) element = flat.begin(); element != flat.end(); ++element) {
+            std::vector<uint> tensor_indices(order);
 
             /*
-             * get the tensor indices in the ordering given by indices_rows and compute the position in the matrix row with the base from above
+             * get the tensor index in the ordering given by indices_rows
              */
-            for(decltype(indices_rows.size()) j = 0; j < indices_rows.size(); ++j) {
-                row_index += tensor_indices[indices_rows[j]] * base_rows[j];
+            uint rest = element.row();
+            for(int j = indices_rows.size() - 1; j >= 1; --j) {
+                tensor_indices[indices_rows[j]] = rest / base_rows[j];
+                rest %= base_rows[j];
             }
+            tensor_indices[indices_rows[0]] = rest;
 
-            for(decltype(indices_columns.size()) j = 0; j < indices_columns.size(); ++j) {
-                col_index += tensor_indices[indices_columns[j]] * base_cols[j];
+            rest = element.col();
+            for(int j = indices_columns.size() - 1; j >= 1; --j) {
+                tensor_indices[indices_columns[j]] = rest / base_cols[j];
+                rest %= base_cols[j];
             }
+            tensor_indices[indices_columns[0]] = rest;
 
-            t[i] = flat(row_index, col_index);
+            t(flatindex(tensor_indices)) = *element;
         }
+    }
+
+
+    template <class T>
+    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+        arma::SpMat<T> flat_sparse(flat);
+
+        inflate(indices_rows, indices_columns, flat_sparse);
     }
     
 }

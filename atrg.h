@@ -42,7 +42,7 @@ namespace ATRG {
         std::vector<uint> dim_to_order_indices(physical_dimension);
         std::iota(dim_to_order_indices.begin(), dim_to_order_indices.end(), physical_dimension);
 
-        arma::Mat<T> flat;
+        arma::SpMat<T> flat;
         tensor.flatten(null_to_dim_indices, dim_to_order_indices, flat);
         arma::Mat<T> U;
         arma::Mat<T> V;
@@ -73,8 +73,8 @@ namespace ATRG {
         Tensor<T> C(forward_dimensions_and_alpha);
         Tensor<T> D(backward_dimensions_and_alpha);
 
-        arma::Mat<T> US = U_times_S(U, S);
-        arma::Mat<T> SVp = U_times_S(V, S);
+        arma::SpMat<T> US(U_times_S(U, S));
+        arma::SpMat<T> SVp(U_times_S(V, S));
 
         // the columns only have alpha as an index, meaning the last index of the tensor
         A.inflate(null_to_dim_indices, {A.get_order() - 1}, U);

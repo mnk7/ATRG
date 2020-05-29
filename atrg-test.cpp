@@ -21,8 +21,8 @@ void random_Tensor(ATRG::Tensor<T> &tensor, std::mt19937_64 &generator) {
     std::normal_distribution<T> distribution(0, 1);
     std::uniform_int_distribution<decltype(tensor.get_size())> element_selector(0, tensor.get_size() - 1);
 
-    for(uint i = 0; i < tensor.get_size() / 4; ++i) {
-        tensor(element_selector(generator)) = distribution(generator);
+    for(uint i = 0; i < tensor.get_size() / 10; ++i) {
+        tensor.set(element_selector(generator), distribution(generator));
     }
 }
 
@@ -50,8 +50,13 @@ void example_Tensor(ATRG::Tensor<T> &tensor) {
  * svd_econ std: same as svd std, not parellelized
  */
 void test_svds(ATRG::Tensor<double> &tensor) {
-    arma::mat flatk;
-    tensor.flatten(0, flatk);
+    std::vector<uint> null_to_dim_indices(tensor.get_order() - 1);
+    std::iota(null_to_dim_indices.begin(), null_to_dim_indices.end(), 1);
+
+    arma::SpMat<double> flat;
+    tensor.flatten({0}, null_to_dim_indices, flat);
+
+    arma::Mat<double> flat_dense(flat);
 
     arma::mat U;
     arma::mat V;
@@ -61,7 +66,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    ATRG::svd:" << std::endl;
     auto starttime_svd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "    relative truncation error: " << ATRG::svd(flatk, U, V, S) << std::endl;
+    std::cout << "    relative truncation error: " << ATRG::svd(flat, U, V, S) << std::endl;
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -69,7 +74,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
                  .count() / 1e3
               << " seconds" << std::endl;
 
-    std::cout << "    residual: " << ATRG::residual_svd(flatk, S, U, V) << std::endl;;
+    std::cout << "    residual: " << ATRG::residual_svd(flat, S, U, V) << std::endl;
     std::cout << S << std::endl << " -----" << std::endl;
     //std::cout << U << std::endl << std::endl << V << std::endl;
 
@@ -78,7 +83,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd 'dc':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd(U, S, V, flatk, "dc");
+    arma::svd(U, S, V, flat_dense, "dc");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -86,6 +91,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
                  .count() / 1e3
               << " seconds" << std::endl;
 
+    std::cout << "    residual: " << ATRG::residual_svd(flat_dense, S, U, V) << std::endl;
     std::cout << S << std::endl << " -----" << std::endl;
 
 
@@ -93,7 +99,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd 'std':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd(U, S, V, flatk, "std");
+    arma::svd(U, S, V, flat_dense, "std");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -109,7 +115,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd_econ 'dc':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd_econ(U, S, V, flatk, "both", "dc");
+    arma::svd_econ(U, S, V, flat_dense, "both", "dc");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -124,7 +130,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd_econ 'std':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd_econ(U, S, V, flatk, "both", "std");
+    arma::svd_econ(U, S, V, flat_dense, "both", "std");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -152,16 +158,16 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
     std::vector<uint> dim_to_order_indices(physical_dimension);
     std::iota(dim_to_order_indices.begin(), dim_to_order_indices.end(), physical_dimension);
 
-    arma::Mat<double> savepoint;
+    arma::SpMat<double> savepoint;
     tensor.flatten(null_to_dim_indices, dim_to_order_indices, savepoint);
 
-    arma::Mat<double> flat = savepoint;
+    arma::SpMat<double> flat = savepoint;
     tensor.inflate(null_to_dim_indices, dim_to_order_indices, flat);
 
-    arma::Mat<double> endpoint;
+    arma::SpMat<double> endpoint;
     tensor.flatten(null_to_dim_indices, dim_to_order_indices, endpoint);
 
-    std::cout << "    f-b flatten and inflate deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl;
+    std::cout << "    f-b flatten and inflate deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl << std::endl;
 
 
 
@@ -169,16 +175,16 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
     // testing naive flattening and naive inflating:
     ATRG::Tensor<int> simple_tensor({2, 3, 4});
     for(uint i = 0; i < simple_tensor.get_size(); ++i) {
-        simple_tensor(i) = i + 1;
+        simple_tensor.set(i, i + 1);
     }
 
     simple_tensor.print();
 
-    arma::Mat<int> flat_int;
+    arma::SpMat<int> flat_int;
 
     simple_tensor.flatten({1, 0}, {2}, flat_int);
 
-    std::cout << flat_int << std::endl;
+    flat_int.print_dense();
 
     simple_tensor.inflate({1, 0}, {2}, flat_int);
 
@@ -208,16 +214,20 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
 }
 
 
+
 void performance_test_flatten_inflate(std::mt19937_64 &generator) {
-    ATRG::Tensor<double> tensor({30, 30, 30, 30, 30, 30});
+    std::cout << "  testing flattening and inflating performance:" << std::endl;
+
+
+    ATRG::Tensor<double> tensor({20, 20, 20, 20, 20, 20});
     random_Tensor(tensor, generator);
 
-    arma::Mat<double> flat;
+    arma::SpMat<double> flat;
 
 
     auto starttime = std::chrono::high_resolution_clock::now();
 
-    tensor.flatten({1, 3}, {0, 2, 4, 5}, flat);
+    tensor.flatten({2, 5}, {4, 0, 3, 1}, flat);
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -230,7 +240,7 @@ void performance_test_flatten_inflate(std::mt19937_64 &generator) {
 
     starttime = std::chrono::high_resolution_clock::now();
 
-    tensor.inflate({1, 3}, {0, 2, 4, 5}, flat);
+    tensor.inflate({2, 5}, {4, 0, 3, 1}, flat);
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -239,6 +249,19 @@ void performance_test_flatten_inflate(std::mt19937_64 &generator) {
               << " seconds" << std::endl;
 
     std::cout << "      OOinflatedOO" << std::endl;
+
+
+    std::cout << "  testing reordering performance:" << std::endl;
+
+    starttime = std::chrono::high_resolution_clock::now();
+
+    tensor.reorder({2, 4, 1, 0, 5, 3});
+
+    std::cout << "    Runtime: " <<
+                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - starttime)
+                 .count() / 1e3
+              << " seconds" << std::endl;
 }
 
 
@@ -264,7 +287,7 @@ int main(int argc, char **argv) {
 
     //test_svds(tensor);
     //test_flatten_and_inflate(tensor);
-    //performance_test_flatten_inflate(generator);
+    performance_test_flatten_inflate(generator);
 
     //=============================================================================================
 

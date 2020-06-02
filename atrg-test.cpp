@@ -8,6 +8,7 @@
 #include <armadillo>
 
 #include <atrg.h>
+#include <sptensor.h>
 #include <tensor.h>
 #include <svd.h>
 
@@ -15,10 +16,10 @@
 /**
  * generates a random tensor
  */
-template <typename T>
-void random_Tensor(ATRG::Tensor<T> &tensor, std::mt19937_64 &generator) {
+template <class TensorType>
+void random_Tensor(TensorType &tensor, std::mt19937_64 &generator) {
 
-    std::normal_distribution<T> distribution(0, 1);
+    std::normal_distribution<decltype(tensor.max())> distribution(0, 1);
     std::uniform_int_distribution<decltype(tensor.get_size())> element_selector(0, tensor.get_size() - 1);
 
     for(uint i = 0; i < tensor.get_size() / 10; ++i) {
@@ -30,8 +31,8 @@ void random_Tensor(ATRG::Tensor<T> &tensor, std::mt19937_64 &generator) {
 /**
  * give a simple tensor with an easy to compute SVD
  */
-template <typename T>
-void example_Tensor(ATRG::Tensor<T> &tensor) {
+template <class TensorType>
+void example_Tensor(TensorType &tensor) {
     tensor.reshape({4, 5});
     tensor.fill(0);
     tensor({0, 0}) = 1;
@@ -53,10 +54,10 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::vector<uint> null_to_dim_indices(tensor.get_order() - 1);
     std::iota(null_to_dim_indices.begin(), null_to_dim_indices.end(), 1);
 
-    arma::SpMat<double> flat;
+    arma::Mat<double> flat;
     tensor.flatten({0}, null_to_dim_indices, flat);
 
-    arma::Mat<double> flat_dense(flat);
+    arma::SpMat<double> flat_sparse(flat);
 
     arma::mat U;
     arma::mat V;
@@ -66,7 +67,24 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    ATRG::svd:" << std::endl;
     auto starttime_svd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "    relative truncation error: " << ATRG::svd(flat, U, V, S) << std::endl;
+    std::cout << "    relative truncation error: " << ATRG::svd(flat_sparse, U, V, S) << std::endl;
+
+    std::cout << "    Runtime: " <<
+                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - starttime_svd)
+                 .count() / 1e3
+              << " seconds" << std::endl;
+
+    std::cout << "    residual: " << ATRG::residual_svd(flat_sparse, S, U, V) << std::endl;
+    std::cout << S << std::endl << " -----" << std::endl;
+    //std::cout << U << std::endl << std::endl << V << std::endl;
+
+
+
+    std::cout << "    arma::svd 'dc':" << std::endl;
+    starttime_svd = std::chrono::high_resolution_clock::now();
+
+    arma::svd(U, S, V, flat, "dc");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -76,30 +94,13 @@ void test_svds(ATRG::Tensor<double> &tensor) {
 
     std::cout << "    residual: " << ATRG::residual_svd(flat, S, U, V) << std::endl;
     std::cout << S << std::endl << " -----" << std::endl;
-    //std::cout << U << std::endl << std::endl << V << std::endl;
-
-
-
-    std::cout << "    arma::svd 'dc':" << std::endl;
-    starttime_svd = std::chrono::high_resolution_clock::now();
-
-    arma::svd(U, S, V, flat_dense, "dc");
-
-    std::cout << "    Runtime: " <<
-                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::high_resolution_clock::now() - starttime_svd)
-                 .count() / 1e3
-              << " seconds" << std::endl;
-
-    std::cout << "    residual: " << ATRG::residual_svd(flat_dense, S, U, V) << std::endl;
-    std::cout << S << std::endl << " -----" << std::endl;
 
 
 
     std::cout << "    arma::svd 'std':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd(U, S, V, flat_dense, "std");
+    arma::svd(U, S, V, flat, "std");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -115,7 +116,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd_econ 'dc':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd_econ(U, S, V, flat_dense, "both", "dc");
+    arma::svd_econ(U, S, V, flat, "both", "dc");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -130,7 +131,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    arma::svd_econ 'std':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    arma::svd_econ(U, S, V, flat_dense, "both", "std");
+    arma::svd_econ(U, S, V, flat, "both", "std");
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -146,7 +147,8 @@ void test_svds(ATRG::Tensor<double> &tensor) {
 /**
  * Testing the flattening and inflating functionalities of the tensor
  */
-void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
+template <class TensorType>
+void test_flatten_and_inflate(TensorType &tensor) {
     std::cout << "  testing tensor flatten and inflate:" << std::endl;
 
     uint physical_dimension = tensor.get_order() / 2;
@@ -158,13 +160,13 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
     std::vector<uint> dim_to_order_indices(physical_dimension);
     std::iota(dim_to_order_indices.begin(), dim_to_order_indices.end(), physical_dimension);
 
-    arma::SpMat<double> savepoint;
+    decltype(tensor.data_copy()) savepoint;
     tensor.flatten(null_to_dim_indices, dim_to_order_indices, savepoint);
 
-    arma::SpMat<double> flat = savepoint;
+    decltype(tensor.data_copy()) flat = savepoint;
     tensor.inflate(null_to_dim_indices, dim_to_order_indices, flat);
 
-    arma::SpMat<double> endpoint;
+    decltype(tensor.data_copy()) endpoint;
     tensor.flatten(null_to_dim_indices, dim_to_order_indices, endpoint);
 
     std::cout << "    f-b flatten and inflate deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl << std::endl;
@@ -173,18 +175,18 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
 
     std::cout << "    naive flattening:" << std::endl;
     // testing naive flattening and naive inflating:
-    ATRG::Tensor<int> simple_tensor({2, 3, 4});
+    TensorType simple_tensor({2, 3, 4});
     for(uint i = 0; i < simple_tensor.get_size(); ++i) {
         simple_tensor.set(i, i + 1);
     }
 
     simple_tensor.print();
 
-    arma::SpMat<int> flat_int;
+    decltype(simple_tensor.data_copy()) flat_int;
 
     simple_tensor.flatten({1, 0}, {2}, flat_int);
 
-    flat_int.print_dense();
+    flat_int.print();
 
     simple_tensor.inflate({1, 0}, {2}, flat_int);
 
@@ -215,14 +217,15 @@ void test_flatten_and_inflate(ATRG::Tensor<double> &tensor) {
 
 
 
+template <class TensorType>
 void performance_test_flatten_inflate(std::mt19937_64 &generator) {
     std::cout << "  testing flattening and inflating performance:" << std::endl;
 
 
-    ATRG::Tensor<double> tensor({20, 20, 20, 20, 20, 20});
+    TensorType tensor({20, 20, 20, 20, 20, 20});
     random_Tensor(tensor, generator);
 
-    arma::SpMat<double> flat;
+    decltype(tensor.data_copy()) flat;
 
 
     auto starttime = std::chrono::high_resolution_clock::now();
@@ -276,18 +279,23 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({10, 5, 10, 5});
+    ATRG::SpTensor<double> tensor({10, 5, 10, 5});
     random_Tensor(tensor, generator);
     //example_Tensor(tensor);
+
+    ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
+    random_Tensor(tensor_dense, generator);
 
 
     std::cout << "  generated random tensor..." << std::endl;
 
     //=============================================================================================
 
-    //test_svds(tensor);
+    //test_svds(tensor_dense);
     //test_flatten_and_inflate(tensor);
-    performance_test_flatten_inflate(generator);
+    //test_flatten_and_inflate(tensor_dense);
+    performance_test_flatten_inflate<ATRG::SpTensor<double>>(generator);
+    performance_test_flatten_inflate<ATRG::Tensor<double>>(generator);
 
     //=============================================================================================
 

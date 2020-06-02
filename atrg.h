@@ -6,6 +6,7 @@
 
 #include <armadillo>
 
+#include <sptensor.h>
 #include <tensor.h>
 #include <svd.h>
 
@@ -16,7 +17,7 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    inline std::tuple<T, T, T> compute_logZ(Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated, const bool compute_residual_error) {
+    inline std::tuple<T, T, T> compute_logZ(SpTensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated, const bool compute_residual_error) {
         T Z = 0;
         T error = 0;
         T residual_error = 0;

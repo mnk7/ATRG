@@ -90,7 +90,7 @@ namespace ATRG {
      * compute the resiudal of a SVD decomposition
      */
     template <class MatrixType, typename T>
-    inline T residual_svd(const MatrixType &matrix, const arma::Col<T> &S, const arma::Mat<T> &U, const arma::Mat<T> &V) {
+    inline T residual_svd(const MatrixType &matrix, const arma::Mat<T> &U, const arma::Mat<T> &V, const arma::Col<T> &S) {
         arma::Mat<T> matrix_svd = U_times_S(U, S);
 
         matrix_svd *= V.t();

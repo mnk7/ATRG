@@ -75,7 +75,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
                  .count() / 1e3
               << " seconds" << std::endl;
 
-    std::cout << "    residual: " << ATRG::residual_svd(flat_sparse, S, U, V) << std::endl;
+    std::cout << "    residual: " << ATRG::residual_svd(flat_sparse, U, V, S) << std::endl;
     std::cout << S << std::endl << " -----" << std::endl;
     //std::cout << U << std::endl << std::endl << V << std::endl;
 
@@ -92,7 +92,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
                  .count() / 1e3
               << " seconds" << std::endl;
 
-    std::cout << "    residual: " << ATRG::residual_svd(flat, S, U, V) << std::endl;
+    std::cout << "    residual: " << ATRG::residual_svd(flat, U, V, S) << std::endl;
     std::cout << S << std::endl << " -----" << std::endl;
 
 
@@ -283,8 +283,8 @@ int main(int argc, char **argv) {
     random_Tensor(tensor, generator);
     //example_Tensor(tensor);
 
-    ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
-    random_Tensor(tensor_dense, generator);
+    //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
+    //random_Tensor(tensor_dense, generator);
 
 
     std::cout << "  generated random tensor..." << std::endl;
@@ -294,14 +294,16 @@ int main(int argc, char **argv) {
     //test_svds(tensor_dense);
     //test_flatten_and_inflate(tensor);
     //test_flatten_and_inflate(tensor_dense);
-    performance_test_flatten_inflate<ATRG::SpTensor<double>>(generator);
-    performance_test_flatten_inflate<ATRG::Tensor<double>>(generator);
+    //performance_test_flatten_inflate<ATRG::SpTensor<double>>(generator);
+    //performance_test_flatten_inflate<ATRG::Tensor<double>>(generator);
 
     //=============================================================================================
 
     std::cout << "  computing logZ:" << std::endl;
 
     // compute log(Z) on a 4x4 lattice
+    std::cout << "    t-blocking:" << std::endl;
+
     auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
 
     /**
@@ -311,9 +313,20 @@ int main(int argc, char **argv) {
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
 
-    std::cout << "    logZ:            " << logZ << std::endl;
-    std::cout << "    relative error:  " << error_logZ << std::endl;
-    std::cout << "    residual error:  " << residual_error_logZ << std::endl;
+    std::cout << "      logZ:            " << logZ << std::endl;
+    std::cout << "      relative error:  " << error_logZ << std::endl;
+    std::cout << "      residual error:  " << residual_error_logZ << std::endl;
+
+
+    std::cout << "    s-blocking:" << std::endl;
+    tensor.reshape({10, 5, 10, 5});
+    random_Tensor(tensor, generator);
+
+    ATRG::compute_logZ(tensor, {4, 4}, 10, true, ATRG::s_blocking);
+
+    std::cout << "      logZ:            " << logZ << std::endl;
+    std::cout << "      relative error:  " << error_logZ << std::endl;
+    std::cout << "      residual error:  " << residual_error_logZ << std::endl;
 
     //==============================================================================================
 

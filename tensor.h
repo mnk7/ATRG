@@ -450,8 +450,8 @@ namespace ATRG {
          * e.g.: {0 1 2}, {3 4}
          */
         if(std::is_sorted(all_indices.begin(), all_indices.end())) {
-            flat.reshape(size, 1);
             t = flat;
+            t.reshape(size, 1);
             return;
         }
 

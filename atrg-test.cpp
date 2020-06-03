@@ -67,7 +67,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    ATRG::svd:" << std::endl;
     auto starttime_svd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "    relative truncation error: " << ATRG::svd(flat_sparse, U, V, S) << std::endl;
+    std::cout << "    relative truncation error: " << std::sqrt(ATRG::svd(flat_sparse, U, V, S)) << std::endl;
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -270,7 +270,6 @@ void performance_test_flatten_inflate(std::mt19937_64 &generator) {
 
 
 int main(int argc, char **argv) {
-
     // get current time
     auto starttime = std::chrono::high_resolution_clock::now();
     //==============================================================================================
@@ -279,7 +278,7 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::SpTensor<double> tensor({10, 5, 10, 5});
+    ATRG::SpTensor<double> tensor({10, 8, 6, 10, 8, 6});
     random_Tensor(tensor, generator);
     //example_Tensor(tensor);
 
@@ -299,12 +298,7 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    std::cout << "  computing logZ:" << std::endl;
-
-    // compute log(Z) on a 4x4 lattice
-    std::cout << "    t-blocking:" << std::endl;
-
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4, 4}, 6, true);
 
     /**
      * C++11 version:
@@ -312,17 +306,6 @@ int main(int argc, char **argv) {
      * double logZ, error_logZ, residual_error_logZ;
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
-
-    std::cout << "      logZ:            " << logZ << std::endl;
-    std::cout << "      relative error:  " << error_logZ << std::endl;
-    std::cout << "      residual error:  " << residual_error_logZ << std::endl;
-
-
-    std::cout << "    s-blocking:" << std::endl;
-    tensor.reshape({10, 5, 10, 5});
-    random_Tensor(tensor, generator);
-
-    ATRG::compute_logZ(tensor, {4, 4}, 10, true, ATRG::s_blocking);
 
     std::cout << "      logZ:            " << logZ << std::endl;
     std::cout << "      relative error:  " << error_logZ << std::endl;

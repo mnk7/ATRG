@@ -7,21 +7,21 @@ namespace ATRG {
 
     /**
      * compute SVD of a sparse matrix by means of the eigenvalues of Q or with armadillos own svd function
-     * return the error
+     * return the squared error
      */
     template <typename T>
     inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows));
 
         // compute the error from the singular values
-        arma::Col<T> cumulative_sum = arma::cumsum(S);
+        arma::Col<T> cumulative_sum = arma::cumsum(S * S);
 
         S.resize(D);
         U.resize(U.n_rows, S.n_elem);
         V.resize(V.n_rows, S.n_elem);
 
-        // sum of all singular values - sum of discarded singular vectors
-        //      / sum of all singular vectors
+        // sum of all squared singular values - sum of kept squared singular vectors
+        //      / sum of all squared singular vectors
         return (cumulative_sum[cumulative_sum.n_elem - 1] - cumulative_sum[D - 1])
                 / cumulative_sum[cumulative_sum.n_elem - 1];
     }
@@ -29,21 +29,21 @@ namespace ATRG {
 
     /**
      * compute SVD of a dense matrix by means of the eigenvalues of Q or with armadillos own svd function
-     * return the error
+     * return the squared error
      */
     template <typename T>
     inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         arma::svd(U, S, V, Q);
 
         // compute the error from the singular values
-        arma::Col<T> cumulative_sum = arma::cumsum(S);
+        arma::Col<T> cumulative_sum = arma::cumsum(S * S);
 
         S.resize(D);
         U.resize(U.n_rows, S.n_elem);
         V.resize(V.n_rows, S.n_elem);
 
-        // sum of all singular values - sum of discarded singular vectors
-        //      / sum of all singular vectors
+        // sum of all squared singular values - sum of kept squared singular vectors
+        //      / sum of all squared singular vectors
         return (cumulative_sum[cumulative_sum.n_elem - 1] - cumulative_sum[D - 1])
                 / cumulative_sum[cumulative_sum.n_elem - 1];
     }

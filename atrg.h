@@ -19,11 +19,11 @@ namespace ATRG {
     };
 
 
+
     template <typename T>
-    void swap_bonds(Tensor<T> &B, Tensor<T> &C, Tensor<T> &X, Tensor<T> &Y, const uint blocking_direction,
-                    T &error, T &residual_error, const bool compute_residual_error,
-                    std::vector<uint> &forward_indices, std::vector<uint> &backward_indices,
-                    const uint D_truncated, std::vector<uint> &backward_dimensions) {
+    inline void swap_bonds(Tensor<T> &B, Tensor<T> &C, Tensor<T> &X, Tensor<T> &Y, const uint blocking_direction,
+                           T &error, T &residual_error, const bool compute_residual_error,
+                           std::vector<uint> &forward_indices, const uint D_truncated, std::vector<uint> &forward_dimensions) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -38,17 +38,18 @@ namespace ATRG {
         arma::Mat<T> U_B;
         arma::Mat<T> V_B;
         arma::Col<T> S_B;
+        error += svd(B_flat, U_B, V_B, S_B);
 
-        auto error_temp = 1.0 - svd(B_flat, U_B, V_B, S_B);
-        error += error_temp * error_temp;
+        uint mu_dimension = V_B.n_cols;
 
         if(compute_residual_error) {
-            auto residual_error_b = 1.0 - residual_svd(B_flat, U_B, V_B, S_B);
+            auto residual_error_b = residual_svd(B_flat, U_B, V_B, S_B);
             residual_error += residual_error_b * residual_error_b;
         }
 
         // make a tensor of S*V with indices: x_trunc, alpha, mu
-        Tensor<T> B_S({backward_dimensions[blocking_direction], D_truncated, static_cast<uint>(V_B.n_cols)});
+        // forward and backward dimensions are the same!
+        Tensor<T> B_S({forward_dimensions[blocking_direction], D_truncated, mu_dimension});
         V_B = U_times_S(V_B, S_B);
         B_S.inflate({0, 1}, {2}, V_B);
         B_S.flatten({0}, {1, 2}, B_flat);
@@ -57,24 +58,24 @@ namespace ATRG {
         arma::Mat<T> U_C;
         arma::Mat<T> V_C;
         arma::Col<T> S_C;
+        error += svd(C_flat, U_C, V_C, S_C);
 
-        error_temp = svd(C_flat, U_C, V_C, S_C);
-        error += error_temp * error_temp;
+        uint nu_dimension = V_C.n_cols;
 
         if(compute_residual_error) {
-            auto residual_error_c = 1.0 - residual_svd(C_flat, U_C, V_C, S_C);
+            auto residual_error_c = residual_svd(C_flat, U_C, V_C, S_C);
             residual_error += residual_error_c * residual_error_c;
         }
 
         // make a tensor of S*V with indices: x_trunc, beta, nu
-        Tensor<T> C_S({backward_dimensions[blocking_direction], D_truncated, static_cast<uint>(V_C.n_cols)});
+        Tensor<T> C_S({forward_dimensions[blocking_direction], D_truncated, nu_dimension});
         V_C = U_times_S(V_C, S_C);
         C_S.inflate({0, 1}, {2}, V_C);
         C_S.flatten({0}, {1, 2}, C_flat);
 
 
         // B.t() * C with indices: alpha, mu, beta, nu
-        Tensor<T> M({D_truncated, static_cast<uint>(U_B.n_cols), D_truncated, static_cast<uint>(U_C.n_cols)});
+        Tensor<T> M({D_truncated, mu_dimension, D_truncated, nu_dimension});
         B_flat = B_flat.t() * C_flat;
         M.inflate({0, 1}, {2, 3}, B_flat);
         M.flatten({0, 3}, {2, 1}, B_flat);
@@ -83,13 +84,13 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error_temp = svd(B_flat, U, V, S, D_truncated);
-        error += error_temp * error_temp;
+        error += svd(B_flat, U, V, S, D_truncated);
+
+        uint truncated_dimension = U.n_cols;
 
         if(compute_residual_error) {
-            auto residual_error_B_t_C = residual_svd(B_flat.t() * C_flat, U, V, S);
+            auto residual_error_B_t_C = residual_svd(B_flat, U, V, S);
             residual_error += residual_error_B_t_C * residual_error_B_t_C;
         }
 
@@ -97,31 +98,52 @@ namespace ATRG {
 
 
         // X has indices: alpha, nu, x_trunc (index from SVD)
-        X.reshape({D_truncated, static_cast<uint>(U_C.n_cols), static_cast<uint>(U.n_cols)});
+        X.reshape({D_truncated, nu_dimension, truncated_dimension});
         U = U_times_S(U, S);
         X.inflate({0, 1}, {2}, U);
         X.flatten({1}, {0, 2}, B_flat);
         B_flat = U_C * B_flat;
-        // new indices: all backward indices but x_trunc, alpha, x_trunc
-        auto X_dimensions(backward_dimensions);
+        // new indices: all forward indices but x_trunc, alpha, x_trunc
+        auto X_dimensions(forward_dimensions);
         X_dimensions.erase(X_dimensions.begin() + blocking_direction);
         X_dimensions.push_back(D_truncated);
         X_dimensions.push_back(U.n_cols);
         X.reshape(X_dimensions);
-        X.inflate(not_blocked_indices, {X.get_order() - 1, blocking_direction}, B_flat);
+        // push the indices after x_trunc forward, so that x_trunc can be the last index
+        for(decltype(not_blocked_indices.size()) i = blocking_direction; i < not_blocked_indices.size(); ++i) {
+            --not_blocked_indices[i];
+        }
+
+        X.inflate(not_blocked_indices, {X.get_order() - 2, X.get_order() - 1}, B_flat);
 
 
         // Y has indices: beta, mu, x_trunc (index from SVD)
-        Y.reshape({D_truncated, static_cast<uint>(U_B.n_cols), static_cast<uint>(V.n_cols)});
+        Y.reshape({D_truncated, mu_dimension, truncated_dimension});
         V = U_times_S(V, S);
         Y.inflate({0, 1}, {2}, V);
         Y.flatten({1}, {0, 2}, B_flat);
         B_flat = U_B * B_flat;
-        // new indices: all forward indices but x_trunc, beta, x_trunc
+        // new indices: all backward indices but x_trunc, beta, x_trunc
         // -> backward and forward dimensions are the same!
         Y.reshape(X_dimensions);
-        Y.inflate(not_blocked_indices, {Y.get_order() - 1, blocking_direction}, B_flat);
+        Y.inflate(not_blocked_indices, {Y.get_order() - 2, Y.get_order() - 1}, B_flat);
     }
+
+
+
+    template <typename T>
+    inline void contract_bonds(Tensor<T> &A, Tensor<T> &D, Tensor<T> &X, Tensor<T> &Y, Tensor<T> &G, Tensor<T> &H, const uint blocking_direction,
+                               T &error, T &residual_error, const bool compute_residual_error) {
+        /*
+         * indices A: all forward, alpha
+         * indices D: all backward, beta
+         * indices X: all forward but x_trunc, alpha, x_trunc
+         * indices Y: all backward but x_trunc, beta, x_trunc
+         */
+
+
+    }
+
 
 
     /**
@@ -131,6 +153,8 @@ namespace ATRG {
     template <typename T>
     inline std::tuple<T, T, T> compute_logZ(SpTensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
                                             const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
+        std::cout << "  computing log(Z):" << std::endl;
+
         T Z = 0;
         /*
          * we compute this errors with error propagation:
@@ -169,12 +193,10 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error = 1.0 - svd(flat, U, V, S, D_truncated);
-        // keep the squared error
-        error *= error;
+        error += svd(flat, U, V, S, D_truncated);
 
         if(compute_residual_error) {
-            residual_error = 1.0 - residual_svd(flat, U, V, S);
+            residual_error = residual_svd(flat, U, V, S);
             // keep the squared error
             residual_error *= residual_error;
         }
@@ -217,6 +239,10 @@ namespace ATRG {
         // intermediate tensors that we will need during the blocking
         Tensor<T> X;
         Tensor<T> Y;
+        Tensor<T> G;
+        Tensor<T> H;
+
+        std::cout << "    decomposed initial tensor..." << std::endl;
 
         //=============================================================================================
 
@@ -234,8 +260,11 @@ namespace ATRG {
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             swap_bonds(B, C, X, Y, blocking_direction,
                        error, residual_error, compute_residual_error,
-                       forward_indices, backward_indices,
-                       D_truncated, backward_dimensions);
+                       forward_indices, D_truncated, forward_dimensions);
+
+            // contract the double bonds of A, X in forward and B, D in backward direction
+            contract_bonds(A, D, X, Y, G, H, blocking_direction,
+                           error, residual_error, compute_residual_error);
 
             //=============================================================================================
 
@@ -245,8 +274,10 @@ namespace ATRG {
             if(blocking_mode == s_blocking) {
                 if(finished_blockings[blocking_direction] == lattice_dimensions[blocking_direction]) {
                     if(blocking_direction == physical_dimension - 1) {
+                        std::cout << "    finished s-blocking..." << std::endl;
                         finished = true;
                     } else {
+                        std::cout << "    s-blocked direction " << blocking_direction << "..." << std::endl;
                         // block the next direction
                         ++blocking_direction;
                     }
@@ -255,8 +286,10 @@ namespace ATRG {
                 // t-blocking:
                 if(finished_blockings[blocking_direction] == lattice_dimensions[blocking_direction]) {
                     if(blocking_direction == 0) {
+                        std::cout << "    finished t-blocking..." << std::endl;
                         finished = true;
                     } else {
+                        std::cout << "    t-blocked direction " << blocking_direction << "..." << std::endl;
                         // block the next direction
                         --blocking_direction;
                     }

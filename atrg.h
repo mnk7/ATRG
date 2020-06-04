@@ -123,6 +123,71 @@ namespace ATRG {
 
 
 
+    /**
+     * helper function for contract_bonds; applys the squeezers to A/X, Y/D
+     */
+    template <typename T>
+    inline std::vector<uint> squeeze(Tensor<T> &A, Tensor<T> &X, Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
+                                     const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
+                                     const std::vector<uint> &forward_dimensions_and_alpha) {
+        arma::Mat<T> A_flat;
+        arma::Mat<T> X_flat;
+
+        A.flatten(forward_indices, {A.get_order() - 1}, A_flat);
+        X.flatten({X.get_order() - 1}, forward_indices, X_flat);
+        // reuse A for the product A * X
+        A_flat = A_flat * X_flat;
+
+        // index order will be: x1, y1, z1, ... x2, y2, z2, ...
+        std::vector<uint> all_dimensions(forward_dimensions_and_alpha);
+        all_dimensions.resize(all_dimensions.size() - 1);
+        all_dimensions.insert(all_dimensions.end(), all_dimensions.begin(), all_dimensions.end());
+
+        auto all_indices(forward_indices);
+        all_indices.insert(all_indices.end(), backward_indices.begin(), backward_indices.end());
+
+        G.reshape(all_dimensions);
+        G.inflate(forward_indices, backward_indices, A_flat);
+
+        uint number_backward_indices = forward_indices.size();
+
+
+        for(decltype(E_i.size()) i = 0; i < E_i.size(); ++i) {
+            uint index = i;
+            if(index >= blocking_direction) {
+                ++index;
+            }
+
+            auto remaining_indices(all_indices);
+            remaining_indices.erase(remaining_indices.begin() + index);
+            // we already remove an index!
+            remaining_indices.erase(remaining_indices.begin() + index + number_backward_indices - 1);
+
+            // single out y1, y2 or z1, z2 etc.
+            G.flatten(remaining_indices, {index, index + number_backward_indices}, A_flat);
+            // remaining_indices, y_new -> the order decreases by one
+            A_flat = A_flat * E_i[i];
+
+            // we insert the new index at the position of the forward index
+            all_dimensions.erase(all_dimensions.begin() + index + number_backward_indices);
+            all_dimensions[index] = A_flat.n_cols;
+
+            // we remove the backward index at forward_index + number_backward_indices -> move all indices above that
+            all_indices.resize(all_indices.size() - 1);
+            remaining_indices = all_indices;
+            remaining_indices.erase(remaining_indices.begin() + index);
+
+            --number_backward_indices;
+
+            G.reshape(all_dimensions);
+            G.inflate(remaining_indices, {index}, A_flat);
+        }
+
+        return all_dimensions;
+    }
+
+
+
     template <typename T>
     inline void contract_bonds(Tensor<T> &A, Tensor<T> &D, Tensor<T> &X, Tensor<T> &Y, Tensor<T> &G, Tensor<T> &H, const uint blocking_direction,
                                T &error, T &residual_error, const bool compute_residual_error,
@@ -257,111 +322,9 @@ namespace ATRG {
         }
 
         // squeeze the bonds to make G and H
-        arma::Mat<T> A_flat;
-        arma::Mat<T> X_flat;
+        auto all_dimensions = squeeze(A, X, G, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
 
-        A.flatten(forward_indices, {A.get_order() - 1}, A_flat);
-        X.flatten({X.get_order() - 1}, forward_indices, X_flat);
-        // reuse A for the product A * X
-        A_flat = A_flat * X_flat;
-
-        // index order will be: x1, y1, z1, ... x2, y2, z2, ...
-        std::vector<uint> all_dimensions(forward_dimensions_and_alpha);
-        all_dimensions.resize(all_dimensions.size() - 1);
-        all_dimensions.insert(all_dimensions.end(), all_dimensions.begin(), all_dimensions.end());
-
-        auto all_indices(forward_indices);
-        all_indices.insert(all_indices.end(), backward_indices.begin(), backward_indices.end());
-
-        G.reshape(all_dimensions);
-        G.inflate(forward_indices, backward_indices, A_flat);
-
-        uint number_backward_indices = forward_indices.size();
-
-
-        for(decltype(E_i.size()) i = 0; i < E_i.size(); ++i) {
-            uint index = i;
-            if(index >= blocking_direction) {
-                ++index;
-            }
-
-            auto remaining_indices(all_indices);
-            remaining_indices.erase(remaining_indices.begin() + index);
-            // we already remove an index!
-            remaining_indices.erase(remaining_indices.begin() + index + number_backward_indices - 1);
-
-            // single out y1, y2 or z1, z2 etc.
-            G.flatten(remaining_indices, {index, index + number_backward_indices}, A_flat);
-            // remaining_indices, y_new -> the order decreases by one
-            A_flat = A_flat * E_i[i];
-
-            // we insert the new index at the position of the forward index
-            all_dimensions.erase(all_dimensions.begin() + index + number_backward_indices);
-            all_dimensions[index] = A_flat.n_cols;
-
-            // we remove the backward index at forward_index + number_backward_indices -> move all indices above that
-            all_indices.resize(all_indices.size() - 1);
-            remaining_indices = all_indices;
-            remaining_indices.erase(remaining_indices.begin() + index);
-
-            --number_backward_indices;
-
-            G.reshape(all_dimensions);
-            G.inflate(remaining_indices, {index}, A_flat);
-        }
-
-
-        // same procedure for H
-        Y.flatten(forward_indices, {Y.get_order() - 1}, A_flat);
-        D.flatten({D.get_order() - 1}, forward_indices, X_flat);
-        // reuse A for the product A * X
-        A_flat = A_flat * X_flat;
-
-        // index order will be: x1, y1, z1, ... x2, y2, z2, ...
-        all_dimensions = forward_dimensions_and_alpha;
-        all_dimensions.resize(all_dimensions.size() - 1);
-        all_dimensions.insert(all_dimensions.end(), all_dimensions.begin(), all_dimensions.end());
-
-        all_indices = forward_indices;
-        all_indices.insert(all_indices.end(), backward_indices.begin(), backward_indices.end());
-
-        H.reshape(all_dimensions);
-        H.inflate(forward_indices, backward_indices, A_flat);
-
-        number_backward_indices = forward_indices.size();
-
-
-        for(decltype(F_i.size()) i = 0; i < F_i.size(); ++i) {
-            uint index = i;
-            if(index >= blocking_direction) {
-                ++index;
-            }
-
-            auto remaining_indices(all_indices);
-            remaining_indices.erase(remaining_indices.begin() + index);
-            // we already remove an index!
-            remaining_indices.erase(remaining_indices.begin() + index + number_backward_indices - 1);
-
-            // single out y1, y2 or z1, z2 etc.
-            H.flatten(remaining_indices, {index, index + number_backward_indices}, A_flat);
-            // remaining_indices, y_new -> the order decreases by one
-            A_flat = A_flat * F_i[i];
-
-            // we insert the new index at the position of the forward index
-            all_dimensions.erase(all_dimensions.begin() + index + number_backward_indices);
-            all_dimensions[index] = A_flat.n_cols;
-
-            // we remove the backward index at forward_index + number_backward_indices -> move all indices above that
-            all_indices.resize(all_indices.size() - 1);
-            remaining_indices = all_indices;
-            remaining_indices.erase(remaining_indices.begin() + index);
-
-            --number_backward_indices;
-
-            H.reshape(all_dimensions);
-            H.inflate(remaining_indices, {index}, A_flat);
-        }
-
+        squeeze(Y, D, H, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
 
         // update the bond size
         for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {

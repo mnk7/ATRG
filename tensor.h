@@ -39,8 +39,8 @@ namespace ATRG {
         std::vector<uint> multiindex(const uint flatindex);
         void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat);
         void flatten(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
-        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat);
-        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat);
+        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, const arma::SpMat<T> &flat);
+        void inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, const arma::Mat<T> &flat);
 
         uint get_size() const { return size; }
         uint get_order() const { return order; }
@@ -407,7 +407,7 @@ namespace ATRG {
      * inflate the tensor with the given indices identifying the rows and the rest of the indices identifying the columns
      */
     template <class T>
-    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::SpMat<T> &flat) {
+    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, const arma::SpMat<T> &flat) {
         arma::Mat<T> flat_dense(flat);
 
         inflate(indices_rows, indices_columns, flat_dense);
@@ -415,7 +415,7 @@ namespace ATRG {
 
 
     template <class T>
-    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, arma::Mat<T> &flat) {
+    inline void Tensor<T>::inflate(const std::vector<uint> &indices_rows, const std::vector<uint> &indices_columns, const arma::Mat<T> &flat) {
         if(flat.n_elem != size) {
             std::cerr << "  In ATRG::Tensor<T>::inflate: flat matrix has an incorrect size!" << std::endl;
             throw 0;

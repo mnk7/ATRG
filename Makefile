@@ -5,7 +5,7 @@ atrg_test: atrg-test.o
 	$(CXX) -Wall -o build/$@ $(CXXFLAGS) $^ $(LIBS)
 	rm -f *.o
 
-atrg_test_debug: CXXFLAGS += -DDEBUG -g
+atrg_test_debug: CXXFLAGS += -DDEBUG -g -Wall
 atrg_test_debug: atrg_test
 
 atrg_test_release: CXXFLAGS += -O3

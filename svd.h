@@ -11,7 +11,10 @@ namespace ATRG {
      */
     template <typename T>
     inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
-        arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows));
+        if(!arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows))) {
+            std::cerr << "  could not perform sparse SVD!" << std::endl;
+            throw 0;
+        }
 
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);
@@ -33,7 +36,10 @@ namespace ATRG {
      */
     template <typename T>
     inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
-        arma::svd(U, S, V, Q);
+        if(!arma::svd(U, S, V, Q)) {
+            std::cerr << "  could not perform SVD!" << std::endl;
+            throw 0;
+        }
 
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);

@@ -69,9 +69,7 @@ namespace ATRG {
         }
 
         friend std::ostream &operator<<(std::ostream &out, SpTensor<T> &t) {
-            arma::SpMat<T> flat;
-            t.flatten(0, flat);
-            out << flat;
+            out << t.data();
             return out;
         }
 

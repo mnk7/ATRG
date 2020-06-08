@@ -85,7 +85,7 @@ namespace ATRG {
         arma::Mat<T> V;
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U, V, S, forward_dimensions_and_alpha.back());
+        error += svd(B_flat, U, V, S, forward_dimensions_and_alpha[blocking_direction]);
 
         uint truncated_dimension = U.n_cols;
 
@@ -166,7 +166,7 @@ namespace ATRG {
         // V.t() * U = 1
         // order in U/V: {index_A, index_X}, eta
         arma::Mat<T> V_P;
-        error += svd(P, U_P, V_P, S, D_truncated);
+        error += svd(P, U_P, V_P, S, forward_dimensions_and_alpha[index]);
 
         if(compute_residual_error) {
             auto residual_error_P = residual_svd(P, U_P, V_P, S);
@@ -597,7 +597,7 @@ namespace ATRG {
         G.flatten(forward_indices, {G.get_order() - 1}, G_flat);
 
         arma::Mat<T> H_flat;
-        H.flatten(forward_indices, {G.get_order() - 1}, H_flat);
+        H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
         Z = arma::sum(arma::sum(G_flat));

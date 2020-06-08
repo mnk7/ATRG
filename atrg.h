@@ -21,7 +21,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void swap_bonds(Tensor<T> &B, Tensor<T> &C, Tensor<T> &X, Tensor<T> &Y, const uint blocking_direction,
+    inline void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                            T &error, T &residual_error, const bool compute_residual_error,
                            const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> B_flat;
@@ -49,7 +49,7 @@ namespace ATRG {
 
         // make a tensor of S*V with indices: x_trunc, alpha, mu
         // forward and backward dimensions are the same!
-        Tensor<T> B_S({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), mu_dimension});
+        ATRG::Tensor<T> B_S({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), mu_dimension});
         V_B = U_times_S(V_B, S_B);
         B_S.inflate({0, 1}, {2}, V_B);
         B_S.flatten({0}, {1, 2}, B_flat);
@@ -127,7 +127,7 @@ namespace ATRG {
      * helper function for squeeze_bonds; computes an isometry from two tensors
      */
     template <typename T>
-    inline void isometry(Tensor<T> &A, Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
+    inline void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
                          T &error, T &residual_error, const bool compute_residual_error,
                          const std::vector<uint> &psi_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> L_mat;
@@ -137,7 +137,7 @@ namespace ATRG {
         L_mat = L_mat * L_mat.t();
         // matrix is sorted: "index", alpha, "index", alpha
         // we want the tensor to be: "index", "index", alpha, alpha
-        Tensor<T> L({forward_dimensions_and_alpha[index], forward_dimensions_and_alpha[index],
+        ATRG::Tensor<T> L({forward_dimensions_and_alpha[index], forward_dimensions_and_alpha[index],
                      forward_dimensions_and_alpha.back(), forward_dimensions_and_alpha.back()});
         L.inflate({0, 2}, {1, 3}, L_mat);
         L.flatten({0, 1}, {2, 3}, L_mat);
@@ -180,7 +180,7 @@ namespace ATRG {
      * helper function for squeeze_bonds; applys the squeezers to A/X, Y/D
      */
     template <typename T>
-    inline std::vector<uint> squeeze(Tensor<T> &A, Tensor<T> &X, Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
+    inline std::vector<uint> squeeze(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, ATRG::Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
                                      const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
                                      const std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> A_flat;
@@ -242,7 +242,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void squeeze_bonds(Tensor<T> &A, Tensor<T> &D, Tensor<T> &X, Tensor<T> &Y, Tensor<T> &G, Tensor<T> &H, const uint blocking_direction,
+    inline void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
                               T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         /*
@@ -316,7 +316,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void contract_bond(Tensor<T> &G, Tensor<T> &H, Tensor<T> &A, Tensor<T> &B, Tensor<T> &C, Tensor<T> &D, const uint blocking_direction,
+    inline void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
                               T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> flat;
@@ -397,7 +397,7 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    inline std::tuple<T, T, T> compute_logZ(SpTensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
+    inline std::tuple<T, T, T> compute_logZ(ATRG::SpTensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
                                             const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
@@ -466,10 +466,10 @@ namespace ATRG {
         tensor.reshape({0});
 
         // create A, B, C, D tensors from our SVD results:
-        Tensor<T> A(forward_dimensions_and_alpha);
-        Tensor<T> B(backward_dimensions_and_alpha);
-        Tensor<T> C(forward_dimensions_and_alpha);
-        Tensor<T> D(backward_dimensions_and_alpha);
+        ATRG::Tensor<T> A(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> B(backward_dimensions_and_alpha);
+        ATRG::Tensor<T> C(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> D(backward_dimensions_and_alpha);
 
         arma::Mat<T> US(U_times_S(U, S));
         arma::Mat<T> SVp(U_times_S(V, S));
@@ -485,10 +485,10 @@ namespace ATRG {
         SVp.set_size(0);
 
         // intermediate tensors that we will need during the blocking
-        Tensor<T> X;
-        Tensor<T> Y;
-        Tensor<T> G;
-        Tensor<T> H;
+        ATRG::Tensor<T> X;
+        ATRG::Tensor<T> Y;
+        ATRG::Tensor<T> G;
+        ATRG::Tensor<T> H;
 
         std::cout << "    decomposed initial tensor...  " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(

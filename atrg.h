@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <tuple>
+#include <chrono>
 
 #include <armadillo>
 
@@ -602,6 +603,10 @@ namespace ATRG {
         G_flat = G_flat * H_flat.t();
         Z = arma::sum(arma::sum(G_flat));
 
+        auto volume = std::accumulate(lattice_dimensions.begin(), lattice_dimensions.end(), 1, std::multiplies<T>());
+
+        Z = std::log(Z) / volume;
+
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -609,7 +614,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {std::log(Z), std::sqrt(error), std::sqrt(residual_error)};
+        return {Z, std::sqrt(error), std::sqrt(residual_error)};
     }
 
 }

@@ -603,7 +603,9 @@ namespace ATRG {
         G_flat = G_flat * H_flat.t();
         Z = arma::sum(arma::sum(G_flat));
 
-        auto volume = std::accumulate(lattice_dimensions.begin(), lattice_dimensions.end(), 1, std::multiplies<T>());
+        auto lattice_sizes(lattice_dimensions);
+        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
+        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
 
         Z = std::log(Z) / volume;
 

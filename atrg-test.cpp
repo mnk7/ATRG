@@ -3,6 +3,8 @@
 #include <random>
 #include <chrono>
 
+#include <omp.h>
+#include <cblas-openblas.h>
 #define ARMA_DONT_USE_WRAPPER
 #define ARMA_NO_DEBUG
 #include <armadillo>
@@ -40,6 +42,25 @@ void example_Tensor(TensorType &tensor) {
     tensor({1, 2}) = 3;
     tensor({3, 1}) = 2;
 }
+
+
+/**
+ * fills a tensor with ascending numbers from 0 to tensor size while leaving a space of 9 null-elements
+ */
+template <class TensorType>
+void ascending_Tensor(TensorType &tensor) {
+    decltype(tensor.max()) element = 0.1;
+    decltype(tensor.max()) sign = 1;
+
+    for(decltype(tensor.get_size()) i = 0; i < tensor.get_size(); i = i + 10) {
+        tensor.set(i, element);
+
+        element *= sign;
+        element += sign * 0.05;
+        sign *= -1;
+    }
+}
+
 
 
 /**
@@ -274,19 +295,23 @@ int main(int argc, char **argv) {
     auto starttime = std::chrono::high_resolution_clock::now();
     //==============================================================================================
 
+    omp_set_num_threads(1);
+    openblas_set_num_threads(1);
+
     std::random_device r;
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::SpTensor<double> tensor({10, 8, 6, 10, 8, 6});
-    random_Tensor(tensor, generator);
+    ATRG::Tensor<double> tensor({12, 11, 10, 12, 11, 10});
+    //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
+    ascending_Tensor(tensor);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
     //random_Tensor(tensor_dense, generator);
 
 
-    std::cout << "  generated random tensor..." << std::endl;
+    std::cout << "  generated tensor..." << std::endl;
 
     //=============================================================================================
 
@@ -298,7 +323,7 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4, 4}, 6, true);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4, 4}, 10, true);
 
     /**
      * C++11 version:
@@ -307,6 +332,7 @@ int main(int argc, char **argv) {
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
 
+    std::cout << "      expected logZ:   1.06111" << std::endl;
     std::cout << "      logZ:            " << logZ << std::endl;
     std::cout << "      relative error:  " << error_logZ << std::endl;
     std::cout << "      residual error:  " << residual_error_logZ << std::endl;

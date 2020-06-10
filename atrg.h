@@ -405,6 +405,12 @@ namespace ATRG {
         auto splittime = starttime;
 
         T Z = 0;
+        T logScalefactors = 0;
+
+        auto lattice_sizes(lattice_dimensions);
+        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
+        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
+        auto remaining_volume = volume;
         /*
          * we compute this errors with error propagation:
          * if we multiply to quantities we compute:
@@ -522,6 +528,16 @@ namespace ATRG {
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated);
 
+            remaining_volume /= 2;
+
+            // rescale G and H
+            auto G_scale = G.max();
+            G.rescale(1.0 / G_scale);
+            auto H_scale = H.max();
+            H.rescale(1.0 / H_scale);
+
+            logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+
             //=============================================================================================
 
             ++finished_blockings[blocking_direction];
@@ -603,11 +619,7 @@ namespace ATRG {
         G_flat = G_flat * H_flat.t();
         Z = arma::sum(arma::sum(G_flat));
 
-        auto lattice_sizes(lattice_dimensions);
-        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
-        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
-
-        Z = std::log(Z) / volume;
+        Z = (std::log(Z) + logScalefactors) / volume;
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -618,7 +630,6 @@ namespace ATRG {
 
         return {Z, std::sqrt(error), std::sqrt(residual_error)};
     }
-
 }
 
 #endif // ATRG

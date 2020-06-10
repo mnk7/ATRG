@@ -22,7 +22,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
+    void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                            T &error, T &residual_error, const bool compute_residual_error,
                            const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> B_flat;
@@ -50,10 +50,10 @@ namespace ATRG {
 
         // make a tensor of S*V with indices: x_trunc, alpha, mu
         // forward and backward dimensions are the same!
-        ATRG::Tensor<T> B_S({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), mu_dimension});
+        B.reshape({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), mu_dimension});
         V_B = U_times_S(V_B, S_B);
-        B_S.inflate({0, 1}, {2}, V_B);
-        B_S.flatten({0}, {1, 2}, B_flat);
+        B.inflate({0, 1}, {2}, V_B);
+        B.flatten({0}, {1, 2}, B_flat);
 
 
         arma::Mat<T> U_C;
@@ -69,17 +69,17 @@ namespace ATRG {
         }
 
         // make a tensor of S*V with indices: x_trunc, beta, nu
-        B_S.reshape({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), nu_dimension});
+        B.reshape({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), nu_dimension});
         V_C = U_times_S(V_C, S_C);
-        B_S.inflate({0, 1}, {2}, V_C);
-        B_S.flatten({0}, {1, 2}, C_flat);
+        B.inflate({0, 1}, {2}, V_C);
+        B.flatten({0}, {1, 2}, C_flat);
 
 
         // B.t() * C with indices: alpha, mu, beta, nu
-        B_S.reshape({forward_dimensions_and_alpha.back(), mu_dimension, forward_dimensions_and_alpha.back(), nu_dimension});
+        B.reshape({forward_dimensions_and_alpha.back(), mu_dimension, forward_dimensions_and_alpha.back(), nu_dimension});
         B_flat = B_flat.t() * C_flat;
-        B_S.inflate({0, 1}, {2, 3}, B_flat);
-        B_S.flatten({0, 3}, {2, 1}, B_flat);
+        B.inflate({0, 1}, {2, 3}, B_flat);
+        B.flatten({0, 3}, {2, 1}, B_flat);
 
 
         arma::Mat<T> U;
@@ -128,7 +128,7 @@ namespace ATRG {
      * helper function for squeeze_bonds; computes an isometry from two tensors
      */
     template <typename T>
-    inline void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
+    void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
                          T &error, T &residual_error, const bool compute_residual_error,
                          const std::vector<uint> &psi_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> L_mat;
@@ -181,7 +181,7 @@ namespace ATRG {
      * helper function for squeeze_bonds; applys the squeezers to A/X, Y/D
      */
     template <typename T>
-    inline std::vector<uint> squeeze(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, ATRG::Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
+    std::vector<uint> squeeze(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, ATRG::Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
                                      const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
                                      const std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> A_flat;
@@ -243,7 +243,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
+    void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
                               T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         /*
@@ -317,7 +317,7 @@ namespace ATRG {
 
 
     template <typename T>
-    inline void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
+    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
                               T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> flat;
@@ -398,7 +398,7 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    inline std::tuple<T, T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
+    std::tuple<T, T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
                                             const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();

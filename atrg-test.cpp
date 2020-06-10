@@ -295,8 +295,8 @@ int main(int argc, char **argv) {
     auto starttime = std::chrono::high_resolution_clock::now();
     //==============================================================================================
 
-    omp_set_num_threads(1);
-    openblas_set_num_threads(1);
+    omp_set_num_threads(4);
+    openblas_set_num_threads(4);
 
     std::random_device r;
     auto seed = r();
@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
 
-    std::cout << "      expected logZ:   1.06111" << std::endl;
+    std::cout << "      expected logZ:   1.11011" << std::endl;
     std::cout << "      logZ:            " << logZ << std::endl;
     std::cout << "      relative error:  " << error_logZ << std::endl;
     std::cout << "      residual error:  " << residual_error_logZ << std::endl;

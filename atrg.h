@@ -398,7 +398,7 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    inline std::tuple<T, T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
+    inline std::tuple<T, T, T> compute_logZ(ATRG::SpTensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
                                             const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
@@ -443,7 +443,7 @@ namespace ATRG {
 
         //=============================================================================================
 
-        arma::Mat<T> flat;
+        arma::SpMat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
         arma::Mat<T> V;

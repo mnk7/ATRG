@@ -302,7 +302,7 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::SpTensor<double> tensor({12, 11, 10, 12, 11, 10});
+    ATRG::Tensor<double> tensor({12, 11, 10, 12, 11, 10});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor);

@@ -492,6 +492,8 @@ namespace ATRG {
 
             t(i) = flat(row_index, col_index);
         }
+
+        flat.set_size(0);
     }
     
 }

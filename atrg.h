@@ -448,7 +448,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated);
+        error += svd(flat, U, V, S, 2 * D_truncated);
 
         if(compute_residual_error) {
             residual_error = residual_svd(flat, U, V, S);
@@ -464,10 +464,10 @@ namespace ATRG {
         decltype(dimensions) backward_dimensions(dimensions.begin() + physical_dimension, dimensions.end());
 
         auto forward_dimensions_and_alpha(forward_dimensions);
-        forward_dimensions_and_alpha.push_back(D_truncated);
+        forward_dimensions_and_alpha.push_back(2 * D_truncated);
 
         auto backward_dimensions_and_alpha(backward_dimensions);
-        backward_dimensions_and_alpha.push_back(D_truncated);
+        backward_dimensions_and_alpha.push_back(2 * D_truncated);
 
         // we don't need the tensor from here on, so we free the memory
         tensor.reshape({0});
@@ -531,9 +531,9 @@ namespace ATRG {
             remaining_volume /= 2;
 
             // rescale G and H
-            auto G_scale = G.max();
+            auto G_scale = std::abs(G.max());
             G.rescale(1.0 / G_scale);
-            auto H_scale = H.max();
+            auto H_scale = std::abs(H.max());
             H.rescale(1.0 / H_scale);
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));

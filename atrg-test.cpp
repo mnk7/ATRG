@@ -295,14 +295,14 @@ int main(int argc, char **argv) {
     auto starttime = std::chrono::high_resolution_clock::now();
     //==============================================================================================
 
-    omp_set_num_threads(4);
-    openblas_set_num_threads(4);
+    omp_set_num_threads(1);
+    openblas_set_num_threads(1);
 
     std::random_device r;
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({12, 11, 10, 12, 11, 10});
+    ATRG::Tensor<double> tensor({6, 6, 6, 6});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor);
@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4, 4}, 10, true);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4}, 6, true, ATRG::t_blocking);
 
     /**
      * C++11 version:

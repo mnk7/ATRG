@@ -23,8 +23,8 @@ namespace ATRG {
 
     template <typename T>
     void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
-                           T &error, T &residual_error, const bool compute_residual_error,
-                           const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+                    T &error, T &residual_error, const bool compute_residual_error,
+                    const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -129,8 +129,8 @@ namespace ATRG {
      */
     template <typename T>
     void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
-                         T &error, T &residual_error, const bool compute_residual_error,
-                         const std::vector<uint> &psi_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+                  T &error, T &residual_error, const bool compute_residual_error,
+                  const std::vector<uint> &psi_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         arma::Mat<T> L_mat;
         // single out "index" and alpha
         A.flatten({index, A.get_order() - 1}, psi_indices, L_mat);
@@ -182,8 +182,8 @@ namespace ATRG {
      */
     template <typename T>
     std::vector<uint> squeeze(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, ATRG::Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
-                                     const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
-                                     const std::vector<uint> &forward_dimensions_and_alpha) {
+                              const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
+                              const std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> A_flat;
         arma::Mat<T> X_flat;
 
@@ -244,8 +244,8 @@ namespace ATRG {
 
     template <typename T>
     void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
-                              T &error, T &residual_error, const bool compute_residual_error,
-                              const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+                       T &error, T &residual_error, const bool compute_residual_error,
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
         /*
          * indices A: all forward, alpha
          * indices D: all backward, beta
@@ -404,7 +404,7 @@ namespace ATRG {
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
 
-        T Z = 0;
+        T logZ = 0;
         T logScalefactors = 0;
 
         auto lattice_sizes(lattice_dimensions);
@@ -538,19 +538,6 @@ namespace ATRG {
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
 
-
-            auto G_copy = G;
-            arma::Mat<T> G_flat_copy;
-            G_copy.flatten(forward_indices, {G_copy.get_order() - 1}, G_flat_copy);
-
-            auto H_copy = H;
-            arma::Mat<T> H_flat_copy;
-            H_copy.flatten(forward_indices, {H_copy.get_order() - 1}, H_flat_copy);
-
-            G_flat_copy = G_flat_copy * H_flat_copy.t();
-            std::cout << "  Z = " << arma::sum(arma::sum(G_flat_copy)) << std::endl << std::endl;
-
-
             //=============================================================================================
 
             ++finished_blockings[blocking_direction];
@@ -630,9 +617,10 @@ namespace ATRG {
         H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
-        Z = arma::sum(arma::sum(G_flat));
+        logZ = arma::sum(arma::sum(G_flat));
 
-        Z = (std::log(Z) + logScalefactors) / volume;
+        // avoid getting negative logZ at this point.
+        logZ = (std::log(std::abs(logZ)) + logScalefactors) / volume;
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -641,7 +629,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {Z, std::sqrt(error), std::sqrt(residual_error)};
+        return {logZ, std::sqrt(error), std::sqrt(residual_error)};
     }
 }
 

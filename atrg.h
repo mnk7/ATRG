@@ -448,7 +448,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, 2 * D_truncated);
+        error += svd(flat, U, V, S, D_truncated);
 
         if(compute_residual_error) {
             residual_error = residual_svd(flat, U, V, S);
@@ -464,10 +464,10 @@ namespace ATRG {
         decltype(dimensions) backward_dimensions(dimensions.begin() + physical_dimension, dimensions.end());
 
         auto forward_dimensions_and_alpha(forward_dimensions);
-        forward_dimensions_and_alpha.push_back(2 * D_truncated);
+        forward_dimensions_and_alpha.push_back(U.n_cols);
 
         auto backward_dimensions_and_alpha(backward_dimensions);
-        backward_dimensions_and_alpha.push_back(2 * D_truncated);
+        backward_dimensions_and_alpha.push_back(U.n_cols);
 
         // we don't need the tensor from here on, so we free the memory
         tensor.reshape({0});
@@ -538,6 +538,19 @@ namespace ATRG {
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
 
+
+            auto G_copy = G;
+            arma::Mat<T> G_flat_copy;
+            G_copy.flatten(forward_indices, {G_copy.get_order() - 1}, G_flat_copy);
+
+            auto H_copy = H;
+            arma::Mat<T> H_flat_copy;
+            H_copy.flatten(forward_indices, {H_copy.get_order() - 1}, H_flat_copy);
+
+            G_flat_copy = G_flat_copy * H_flat_copy.t();
+            std::cout << "  Z = " << arma::sum(arma::sum(G_flat_copy)) << std::endl << std::endl;
+
+
             //=============================================================================================
 
             ++finished_blockings[blocking_direction];
@@ -545,7 +558,7 @@ namespace ATRG {
             // decide the next truncation direction:
             switch(blocking_mode) {
             case s_blocking:
-                if(finished_blockings[blocking_direction] == lattice_dimensions[blocking_direction]) {
+                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
                     if(blocking_direction == physical_dimension - 1) {
                         std::cout << "    finished s-blocking..." << std::endl;
 
@@ -577,7 +590,7 @@ namespace ATRG {
                 break;
             default:
                 // t-blocking:
-                if(finished_blockings[blocking_direction] == lattice_dimensions[blocking_direction]) {
+                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
                     if(blocking_direction == 0) {
                         std::cout << "    finished t-blocking..." << std::endl;
 

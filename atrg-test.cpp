@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {4, 4}, 6, true, ATRG::t_blocking);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
 
     /**
      * C++11 version:
@@ -332,7 +332,6 @@ int main(int argc, char **argv) {
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
 
-    std::cout << "      expected logZ:   1.11011" << std::endl;
     std::cout << "      logZ:            " << logZ << std::endl;
     std::cout << "      relative error:  " << error_logZ << std::endl;
     std::cout << "      residual error:  " << residual_error_logZ << std::endl;

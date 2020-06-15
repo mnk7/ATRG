@@ -48,8 +48,8 @@ void example_Tensor(TensorType &tensor) {
  * fills a tensor with ascending numbers from 0 to tensor size while leaving a space of 9 null-elements
  */
 template <class TensorType>
-void ascending_Tensor(TensorType &tensor) {
-    decltype(tensor.max()) element = 0.1;
+void ascending_Tensor(TensorType &tensor, double start) {
+    decltype(tensor.max()) element = start;
     decltype(tensor.max()) sign = 1;
 
     for(decltype(tensor.get_size()) i = 0; i < tensor.get_size(); i = i + 10) {
@@ -305,7 +305,10 @@ int main(int argc, char **argv) {
     ATRG::Tensor<double> tensor({6, 6, 6, 6});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
-    ascending_Tensor(tensor);
+    ascending_Tensor(tensor, 0.1);
+
+    ATRG::Tensor<double> impurity({6, 6, 6, 6});
+    ascending_Tensor(impurity, 1.1);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
     //random_Tensor(tensor_dense, generator);
@@ -323,7 +326,8 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
+    //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {4, 4}, 6, true, ATRG::t_blocking);
 
     /**
      * C++11 version:

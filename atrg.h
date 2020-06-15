@@ -399,10 +399,23 @@ namespace ATRG {
      */
     template <typename T>
     std::tuple<T, T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
-                                            const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
+                                     const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
+
+        if(tensor.get_order() != lattice_dimensions.size() * 2) {
+            std::cerr << "  In ATRG::compute_logZ: order of tensor and lattice dimensions don't match!" << std::endl;
+            throw 0;
+        }
+
+        for(uint i = 0; i < tensor.get_order() / 2; ++i) {
+            if(tensor.get_dimensions(i) != tensor.get_dimensions(i + tensor.get_order() / 2)) {
+                std::cerr << "  In ATRG::compute_logZ: dimensions of forward and backward mode don't match!" << std::endl;
+                throw 0;
+            }
+        }
+
 
         T logZ = 0;
         T logScalefactors = 0;
@@ -419,18 +432,6 @@ namespace ATRG {
          */
         T error = 0;
         T residual_error = 0;
-
-        if(tensor.get_order() != lattice_dimensions.size() * 2) {
-            std::cerr << "  In ATRG::compute_logZ: order of tensor and lattice dimensions don't match!" << std::endl;
-            throw 0;
-        }
-
-        for(uint i = 0; i < tensor.get_order() / 2; ++i) {
-            if(tensor.get_dimensions(i) != tensor.get_dimensions(i + tensor.get_order() / 2)) {
-                std::cerr << "  In ATRG::compute_logZ: dimensions of forward and backward mode don't match!" << std::endl;
-                throw 0;
-            }
-        }
 
         uint physical_dimension = tensor.get_order() / 2;
 
@@ -630,6 +631,327 @@ namespace ATRG {
                   << " seconds" << std::endl;
 
         return {logZ, std::sqrt(error), std::sqrt(residual_error)};
+    }
+
+
+
+    /**
+     * compute the log value of the partition sum for the given tensor, impurity pair and a lattice of given dimensions
+     * returns log(Z_impure) and an error estimate
+     */
+    template <typename T>
+    std::tuple<T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
+                                                const std::vector<uint> lattice_dimensions, const uint D_truncated,
+                                                const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
+        std::cout << "  computing log(Z) with one impurity:" << std::endl;
+        auto starttime = std::chrono::high_resolution_clock::now();
+        auto splittime = starttime;
+
+        if(tensor.get_order() != lattice_dimensions.size() * 2
+           || impurity.get_order() != lattice_dimensions.size() * 2) {
+            std::cerr << "  In ATRG::compute_single_impurity: order of tensor and lattice dimensions don't match!" << std::endl;
+            throw 0;
+        }
+
+        for(uint i = 0; i < tensor.get_order() / 2; ++i) {
+            if(tensor.get_dimensions(i) != tensor.get_dimensions(i + tensor.get_order() / 2)
+               || impurity.get_dimensions(i) != impurity.get_dimensions(i + impurity.get_order() / 2)) {
+                std::cerr << "  In ATRG::compute_single_impurity: dimensions of forward and backward mode don't match!" << std::endl;
+                throw 0;
+            }
+        }
+
+
+        T Z = 0;
+        T Z_impure = 0;
+        T logScalefactors = 0;
+
+        auto lattice_sizes(lattice_dimensions);
+        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
+        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
+        auto remaining_volume = volume;
+        /*
+         * we compute this errors with error propagation:
+         * if we multiply to quantities we compute:
+         *     error^2 = error1^2 + error2^2
+         * and take the square root over everything in the end
+         */
+        T error = 0;
+        T residual_error = 0;
+
+        uint physical_dimension = tensor.get_order() / 2;
+
+        // make lists of indices from 0 to >physical dimension< and from >physical dimension< to tensor order
+        std::vector<uint> forward_indices(physical_dimension);
+        std::iota(forward_indices.begin(), forward_indices.end(), 0);
+
+        std::vector<uint> backward_indices(physical_dimension);
+        std::iota(backward_indices.begin(), backward_indices.end(), physical_dimension);
+
+        //=============================================================================================
+
+        arma::Mat<T> flat;
+        tensor.flatten(forward_indices, backward_indices, flat);
+        arma::Mat<T> U;
+        arma::Mat<T> V;
+        arma::Col<T> S;
+        error += svd(flat, U, V, S, D_truncated);
+
+        if(compute_residual_error) {
+            residual_error = residual_svd(flat, U, V, S);
+            // keep the squared error
+            residual_error *= residual_error;
+        }
+
+        impurity.flatten(forward_indices, backward_indices, flat);
+
+
+        auto dimensions = tensor.get_dimensions();
+        decltype(dimensions) forward_dimensions(dimensions.begin(), dimensions.begin() + physical_dimension);
+        decltype(dimensions) backward_dimensions(dimensions.begin() + physical_dimension, dimensions.end());
+
+        auto forward_dimensions_and_alpha(forward_dimensions);
+        forward_dimensions_and_alpha.push_back(U.n_cols);
+
+        auto backward_dimensions_and_alpha(backward_dimensions);
+        backward_dimensions_and_alpha.push_back(U.n_cols);
+
+        // we don't need the tensors from here on, so we free the memory
+        tensor.reshape({0});
+        impurity.reshape({0});
+
+        // create A, B, C, D tensors from our SVD results:
+        ATRG::Tensor<T> A(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> B(backward_dimensions_and_alpha);
+        ATRG::Tensor<T> C(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> D(backward_dimensions_and_alpha);
+
+        // use the same U and V for the impure tensor
+        ATRG::Tensor<T> A_impure(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> B_impure(backward_dimensions_and_alpha);
+        ATRG::Tensor<T> C_impure(forward_dimensions_and_alpha);
+        ATRG::Tensor<T> D_impure(backward_dimensions_and_alpha);
+
+        arma::Mat<T> US(U_times_S(U, S));
+        arma::Mat<T> SVp(U_times_S(V, S));
+
+        // the columns only have alpha as an index, meaning the last index of the tensor
+        // B and D hold the backward modes, so their indices are relabeled
+        A.inflate(forward_indices, {A.get_order() - 1}, U);
+        B.inflate(forward_indices, {B.get_order() - 1}, SVp);
+        C.inflate(forward_indices, {C.get_order() - 1}, US);
+        D.inflate(forward_indices, {D.get_order() - 1}, V);
+
+        // use the same isometry for pure and impure tensor
+        A_impure = A;
+        // the C and D come from the second tensor, in this case a pure tensor
+        C_impure = C;
+        D_impure = D;
+
+        // multiply U.t() at flat -> {alpha, backward_indices}
+        // use the transpose instead to make the inflating cheaper
+        flat = flat.t() * U;
+        B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat);
+
+
+
+        US.set_size(0);
+        SVp.set_size(0);
+
+        // intermediate tensors that we will need during the blocking
+        ATRG::Tensor<T> X;
+        ATRG::Tensor<T> Y;
+        ATRG::Tensor<T> G;
+        ATRG::Tensor<T> H;
+
+        ATRG::Tensor<T> X_impure;
+        ATRG::Tensor<T> Y_impure;
+        ATRG::Tensor<T> G_impure;
+        ATRG::Tensor<T> H_impure;
+
+        std::cout << "    decomposed initial tensor...  " <<
+                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::high_resolution_clock::now() - splittime)
+                     .count() / 1e3
+                  << " seconds" << std::endl;
+        splittime = std::chrono::high_resolution_clock::now();
+
+        //=============================================================================================
+
+        // contract the lattice
+        uint blocking_direction = physical_dimension - 1;
+        if(blocking_mode == s_blocking) {
+            blocking_direction = 0;
+        }
+
+        std::vector<uint> finished_blockings(lattice_dimensions.size(), 0);
+        bool finished = false;
+
+        while(!finished) {
+            //=============================================================================================
+            // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
+            // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
+            swap_bonds(B, C, X, Y, blocking_direction,
+                       error, residual_error, compute_residual_error,
+                       forward_indices, forward_dimensions_and_alpha, D_truncated);
+
+            swap_bonds(B_impure, C_impure, X_impure, Y_impure, blocking_direction,
+                       error, residual_error, compute_residual_error,
+                       forward_indices, forward_dimensions_and_alpha, D_truncated);
+
+            ATRG::Tensor<T> A_copy = A;
+            ATRG::Tensor<T> D_copy = D;
+            ATRG::Tensor<T> X_copy = X;
+            ATRG::Tensor<T> Y_copy = Y;
+
+            auto forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
+
+            // contract the double bonds of A, X in forward and B, D in backward direction
+            squeeze_bonds(A, D, X, Y, G, H, blocking_direction,
+                          error, residual_error, compute_residual_error,
+                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
+
+            ATRG::Tensor<T> throwaway_G_H;
+            // get impure H
+            forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
+            squeeze_bonds(A_copy, D_impure, X_copy, Y_impure, throwaway_G_H, H_impure, blocking_direction,
+                          error, residual_error, compute_residual_error,
+                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
+
+            // get impure G
+            forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
+            squeeze_bonds(A_impure, D_copy, X_impure, Y_copy, G_impure, throwaway_G_H, blocking_direction,
+                          error, residual_error, compute_residual_error,
+                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
+
+            forward_dimensions_and_alpha = forward_dimensions_and_alpha_copy;
+
+            remaining_volume /= 2;
+
+            // rescale G and H
+            auto G_scale = std::abs(G.max());
+            G.rescale(1.0 / G_scale);
+            G_impure.rescale(1.0 / G_scale);
+            auto H_scale = std::abs(H.max());
+            H.rescale(1.0 / H_scale);
+            H_impure.rescale(1.0 / H_scale);
+
+            logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+
+            //=============================================================================================
+
+            ++finished_blockings[blocking_direction];
+
+            // decide the next truncation direction:
+            switch(blocking_mode) {
+            case s_blocking:
+                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+                    if(blocking_direction == physical_dimension - 1) {
+                        std::cout << "    finished s-blocking..." << std::endl;
+
+                        finished = true;
+                        continue;
+                    } else {
+                        std::cout << "    s-blocked direction " << blocking_direction << "...  " <<
+                                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        std::chrono::high_resolution_clock::now() - splittime)
+                                     .count() / 1e3
+                                  << " seconds" << std::endl;
+                        splittime = std::chrono::high_resolution_clock::now();
+
+                        // block the next direction
+                        ++blocking_direction;
+
+                        // make new A, B, C, D from G and H
+                        contract_bond(G, H, A, B, C, D, blocking_direction - 1,
+                                      error, residual_error, compute_residual_error,
+                                      forward_indices, forward_dimensions_and_alpha);
+
+                        contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction - 1,
+                                      error, residual_error, compute_residual_error,
+                                      forward_indices, forward_dimensions_and_alpha);
+                    }
+                } else {
+                    // make new A, B, C, D from G and H
+                    contract_bond(G, H, A, B, C, D, blocking_direction,
+                                  error, residual_error, compute_residual_error,
+                                  forward_indices, forward_dimensions_and_alpha);
+
+                    contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction,
+                                  error, residual_error, compute_residual_error,
+                                  forward_indices, forward_dimensions_and_alpha);
+                }
+
+                break;
+            default:
+                // t-blocking:
+                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+                    if(blocking_direction == 0) {
+                        std::cout << "    finished t-blocking..." << std::endl;
+
+                        finished = true;
+                        continue;
+                    } else {
+                        std::cout << "    t-blocked direction " << blocking_direction << "...  " <<
+                                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        std::chrono::high_resolution_clock::now() - splittime)
+                                     .count() / 1e3
+                                  << " seconds" << std::endl;
+                        splittime = std::chrono::high_resolution_clock::now();
+
+                        // block the next direction
+                        --blocking_direction;
+
+                        // make new A, B, C, D from G and H
+                        contract_bond(G, H, A, B, C, D, blocking_direction + 1,
+                                      error, residual_error, compute_residual_error,
+                                      forward_indices, forward_dimensions_and_alpha);
+
+                        contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction + 1,
+                                      error, residual_error, compute_residual_error,
+                                      forward_indices, forward_dimensions_and_alpha);
+                    }
+                } else {
+                    // make new A, B, C, D from G and H
+                    contract_bond(G, H, A, B, C, D, blocking_direction,
+                                  error, residual_error, compute_residual_error,
+                                  forward_indices, forward_dimensions_and_alpha);
+
+                    contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction,
+                                  error, residual_error, compute_residual_error,
+                                  forward_indices, forward_dimensions_and_alpha);
+                }
+            }
+        }
+
+
+        // make T from G and H:
+        arma::Mat<T> G_flat;
+        G.flatten(forward_indices, {G.get_order() - 1}, G_flat);
+
+        arma::Mat<T> H_flat;
+        H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
+
+        G_flat = G_flat * H_flat.t();
+        Z = arma::sum(arma::sum(G_flat));
+
+
+        G_impure.flatten(forward_indices, {G_impure.get_order() - 1}, G_flat);
+        H_impure.flatten(forward_indices, {H_impure.get_order() - 1}, H_flat);
+
+        G_flat = G_flat * H_flat.t();
+        Z_impure = arma::sum(arma::sum(G_flat));
+
+        Z = Z_impure / Z;
+
+
+        std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
+                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::high_resolution_clock::now() - starttime)
+                     .count() / 1e3
+                  << " seconds" << std::endl;
+
+        return {Z, std::sqrt(error), std::sqrt(residual_error)};
     }
 }
 

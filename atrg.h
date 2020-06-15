@@ -662,9 +662,10 @@ namespace ATRG {
         }
 
 
-        T Z = 0;
-        T Z_impure = 0;
+        T logZ = 0;
+        T logZ_impure = 0;
         T logScalefactors = 0;
+        T logScalefactors_impure = 0;
 
         auto lattice_sizes(lattice_dimensions);
         std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
@@ -831,12 +832,19 @@ namespace ATRG {
             // rescale G and H
             auto G_scale = std::abs(G.max());
             G.rescale(1.0 / G_scale);
-            G_impure.rescale(1.0 / G_scale);
             auto H_scale = std::abs(H.max());
             H.rescale(1.0 / H_scale);
-            H_impure.rescale(1.0 / H_scale);
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+
+
+            auto G_scale_impure = std::abs(G_impure.max());
+            G_impure.rescale(1.0 / G_scale_impure);
+            auto H_scale_impure = std::abs(H_impure.max());
+            H_impure.rescale(1.0 / H_scale_impure);
+
+            logScalefactors_impure += remaining_volume - 1 * (std::log(G_scale) + std::log(H_scale))
+                                    + std::log(G_scale_impure) + std::log(H_scale_impure);
 
             //=============================================================================================
 
@@ -933,16 +941,19 @@ namespace ATRG {
         H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
-        Z = arma::sum(arma::sum(G_flat));
+        logZ = arma::sum(arma::sum(G_flat));
+        logZ = std::log(std::abs(logZ)) + logScalefactors;
 
 
         G_impure.flatten(forward_indices, {G_impure.get_order() - 1}, G_flat);
         H_impure.flatten(forward_indices, {H_impure.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
-        Z_impure = arma::sum(arma::sum(G_flat));
+        logZ_impure = arma::sum(arma::sum(G_flat));
+        logZ_impure = std::log(std::abs(logZ_impure)) + logScalefactors_impure;
 
-        Z = Z_impure / Z;
+        // log(x / y) = log(x) - log(y)
+        T result = std::exp(logZ_impure - logZ);
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -951,7 +962,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {Z, std::sqrt(error), std::sqrt(residual_error)};
+        return {result, std::sqrt(error), std::sqrt(residual_error)};
     }
 }
 

@@ -334,14 +334,14 @@ namespace ATRG {
 
     template <typename T>
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
-                              T &error, T &residual_error, const bool compute_residual_error,
-                              const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha) {
+                       T &error, T &residual_error, const bool compute_residual_error,
+                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
+                       arma::Mat<T> &U_G, arma::Mat<T> &U_H) {
         arma::Mat<T> flat;
         // order in G: all forward indices, contraction direction backward
         G.flatten(forward_indices, {G.get_order() - 1}, flat);
 
         arma::Col<T> S_G;
-        arma::Mat<T> U_G;
         arma::Mat<T> V_G;
         error += svd(flat, U_G, V_G, S_G);
 
@@ -357,7 +357,6 @@ namespace ATRG {
         H.flatten(backward_indices_in_H, {blocking_direction}, flat);
 
         arma::Col<T> S_H;
-        arma::Mat<T> U_H;
         arma::Mat<T> V_H;
         error += svd(flat, U_H, V_H, S_H);
 
@@ -405,6 +404,65 @@ namespace ATRG {
         flat = U_H * V_K;
         D.reshape(forward_dimensions_and_alpha);
         D.inflate(forward_indices, {D.get_order() - 1}, flat);
+    }
+
+
+
+    template <typename T>
+    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
+                       T &error, T &residual_error, const bool compute_residual_error,
+                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha) {
+
+        arma::Mat<T> U_G;
+        arma::Mat<T> U_H;
+
+        contract_bond(G, H, A, B, C, D, blocking_direction, error, residual_error, compute_residual_error,
+                      forward_indices, forward_dimensions_and_alpha, U_G, U_H);
+    }
+
+
+
+    template <typename T>
+    void contract_impure_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, const uint blocking_direction,
+                              T &error, T &residual_error, const bool compute_residual_error,
+                              const std::vector<uint> &forward_indices, const std::vector<uint> &forward_dimensions_and_alpha,
+                              arma::Mat<T> &U_G, arma::Mat<T> &U_H) {
+
+        arma::Mat<T> flat;
+        // order in G: all forward indices, contraction direction backward
+        G.flatten(forward_indices, {G.get_order() - 1}, flat);
+
+        arma::Mat<T> SV_G = U_G.t() * flat;
+
+
+        // H has the bond to G and the backward index in blocking direction swapped.
+        auto backward_indices_in_H(forward_indices);
+        backward_indices_in_H[blocking_direction] = H.get_order() - 1;
+        H.flatten(backward_indices_in_H, {blocking_direction}, flat);
+
+        arma::Mat<T> SV_H = U_H.t() * flat;
+
+
+        flat = SV_G.t() * SV_H;
+        arma::Col<T> S_K;
+        arma::Mat<T> U_K;
+        arma::Mat<T> V_K;
+        error += svd(flat, U_K, V_K, S_K, forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1]);
+
+        if(compute_residual_error) {
+            auto residual_error_K = residual_svd(flat, U_K, V_K, S_K);
+            residual_error += residual_error_K * residual_error_K;
+        }
+
+        flat = U_G * U_K;
+        A.reshape(forward_dimensions_and_alpha);
+        A.inflate(forward_indices, {A.get_order() - 1}, flat);
+
+
+        arma::Mat<T> SV_K = U_times_S(V_K, S_K);
+        flat = U_H * SV_K;
+        B.reshape(forward_dimensions_and_alpha);
+        B.inflate(forward_indices, {B.get_order() - 1}, flat);
     }
 
 
@@ -559,6 +617,8 @@ namespace ATRG {
 
             ++finished_blockings[blocking_direction];
 
+            auto old_blocking_direction = blocking_direction;
+
             // decide the next truncation direction:
             switch(blocking_mode) {
             case s_blocking:
@@ -578,17 +638,7 @@ namespace ATRG {
 
                         // block the next direction
                         ++blocking_direction;
-
-                        // make new A, B, C, D from G and H
-                        contract_bond(G, H, A, B, C, D, blocking_direction - 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
                     }
-                } else {
-                    // make new A, B, C, D from G and H
-                    contract_bond(G, H, A, B, C, D, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
                 }
 
                 break;
@@ -610,19 +660,14 @@ namespace ATRG {
 
                         // block the next direction
                         --blocking_direction;
-
-                        // make new A, B, C, D from G and H
-                        contract_bond(G, H, A, B, C, D, blocking_direction + 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
                     }
-                } else {
-                    // make new A, B, C, D from G and H
-                    contract_bond(G, H, A, B, C, D, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
                 }
             }
+
+            // make new A, B, C, D from G and H
+            contract_bond(G, H, A, B, C, D, old_blocking_direction,
+                          error, residual_error, compute_residual_error,
+                          forward_indices, forward_dimensions_and_alpha);
         }
 
 
@@ -849,6 +894,8 @@ namespace ATRG {
 
             ++finished_blockings[blocking_direction];
 
+            auto old_blocking_direction = blocking_direction;
+
             // decide the next truncation direction:
             switch(blocking_mode) {
             case s_blocking:
@@ -868,25 +915,7 @@ namespace ATRG {
 
                         // block the next direction
                         ++blocking_direction;
-
-                        // make new A, B, C, D from G and H
-                        contract_bond(G, H, A, B, C, D, blocking_direction - 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
-
-                        contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction - 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
                     }
-                } else {
-                    // make new A, B, C, D from G and H
-                    contract_bond(G, H, A, B, C, D, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
-
-                    contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
                 }
 
                 break;
@@ -908,27 +937,22 @@ namespace ATRG {
 
                         // block the next direction
                         --blocking_direction;
-
-                        // make new A, B, C, D from G and H
-                        contract_bond(G, H, A, B, C, D, blocking_direction + 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
-
-                        contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction + 1,
-                                      error, residual_error, compute_residual_error,
-                                      forward_indices, forward_dimensions_and_alpha);
                     }
-                } else {
-                    // make new A, B, C, D from G and H
-                    contract_bond(G, H, A, B, C, D, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
-
-                    contract_bond(G_impure, H_impure, A_impure, B_impure, C_impure, D_impure, blocking_direction,
-                                  error, residual_error, compute_residual_error,
-                                  forward_indices, forward_dimensions_and_alpha);
                 }
             }
+
+            // make new A, B, C, D from G and H
+            arma::Mat<T> U_G;
+            arma::Mat<T> U_H;
+            contract_bond(G, H, A, B, C, D, old_blocking_direction,
+                          error, residual_error, compute_residual_error,
+                          forward_indices, forward_dimensions_and_alpha,
+                          U_G, U_H);
+
+            contract_impure_bond(G_impure, H_impure, A_impure, B_impure, old_blocking_direction,
+                                 error, residual_error, compute_residual_error,
+                                 forward_indices, forward_dimensions_and_alpha,
+                                 U_G, U_H);
         }
 
 

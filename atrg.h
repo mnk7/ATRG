@@ -662,10 +662,10 @@ namespace ATRG {
         }
 
 
-        T logZ = 0;
-        T logZ_impure = 0;
-        T logScalefactors = 0;
-        T logScalefactors_impure = 0;
+        T Z = 0;
+        T Z_impure = 0;
+        T scalefactors = 1;
+        T scalefactors_impure = 1;
 
         auto lattice_sizes(lattice_dimensions);
         std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
@@ -835,7 +835,7 @@ namespace ATRG {
             H.rescale(1.0 / H_scale);
 
             // V * scale / (V - 1) * scale from the impure result
-            logScalefactors += std::log(G_scale) + std::log(H_scale);
+            scalefactors *= G_scale * H_scale;
 
 
             auto G_scale_impure = std::abs(G_impure.max());
@@ -843,7 +843,7 @@ namespace ATRG {
             auto H_scale_impure = std::abs(H_impure.max());
             H_impure.rescale(1.0 / H_scale_impure);
 
-            logScalefactors_impure += std::log(G_scale_impure) + std::log(H_scale_impure);
+            scalefactors_impure *= G_scale_impure * H_scale_impure;
 
             //=============================================================================================
 
@@ -940,18 +940,18 @@ namespace ATRG {
         H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
-        logZ = arma::sum(arma::sum(G_flat));
-        logZ = logZ * std::exp(logScalefactors);
+        Z = arma::sum(arma::sum(G_flat));
+        Z = Z * scalefactors;
 
 
         G_impure.flatten(forward_indices, {G_impure.get_order() - 1}, G_flat);
         H_impure.flatten(forward_indices, {H_impure.get_order() - 1}, H_flat);
 
         G_flat = G_flat * H_flat.t();
-        logZ_impure = arma::sum(arma::sum(G_flat));
-        logZ_impure = logZ_impure * std::exp(logScalefactors_impure);
+        Z_impure = arma::sum(arma::sum(G_flat));
+        Z_impure = Z_impure * scalefactors_impure;
 
-        T result = logZ_impure / logZ;
+        T result = Z_impure / Z;
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<

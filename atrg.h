@@ -755,7 +755,6 @@ namespace ATRG {
         B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat);
 
 
-
         US.set_size(0);
         SVp.set_size(0);
 
@@ -835,7 +834,8 @@ namespace ATRG {
             auto H_scale = std::abs(H.max());
             H.rescale(1.0 / H_scale);
 
-            logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+            // V * scale / (V - 1) * scale from the impure result
+            logScalefactors += std::log(G_scale) + std::log(H_scale);
 
 
             auto G_scale_impure = std::abs(G_impure.max());
@@ -843,8 +843,7 @@ namespace ATRG {
             auto H_scale_impure = std::abs(H_impure.max());
             H_impure.rescale(1.0 / H_scale_impure);
 
-            logScalefactors_impure += remaining_volume - 1 * (std::log(G_scale) + std::log(H_scale))
-                                    + std::log(G_scale_impure) + std::log(H_scale_impure);
+            logScalefactors_impure += std::log(G_scale_impure) + std::log(H_scale_impure);
 
             //=============================================================================================
 
@@ -942,7 +941,7 @@ namespace ATRG {
 
         G_flat = G_flat * H_flat.t();
         logZ = arma::sum(arma::sum(G_flat));
-        logZ = std::log(std::abs(logZ)) + logScalefactors;
+        logZ = logZ * std::exp(logScalefactors);
 
 
         G_impure.flatten(forward_indices, {G_impure.get_order() - 1}, G_flat);
@@ -950,10 +949,9 @@ namespace ATRG {
 
         G_flat = G_flat * H_flat.t();
         logZ_impure = arma::sum(arma::sum(G_flat));
-        logZ_impure = std::log(std::abs(logZ_impure)) + logScalefactors_impure;
+        logZ_impure = logZ_impure * std::exp(logScalefactors_impure);
 
-        // log(x / y) = log(x) - log(y)
-        T result = std::exp(logZ_impure - logZ);
+        T result = logZ_impure / logZ;
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<

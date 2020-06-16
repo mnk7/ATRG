@@ -843,16 +843,8 @@ namespace ATRG {
             auto H_scale = std::abs(H.max());
             H.rescale(1.0 / H_scale);
 
-            // V * scale / (V - 1) * scale from the impure result
-            scalefactors += std::log(G_scale) + std::log(H_scale);
-
-
-            auto G_scale_impure = std::abs(G_impure.max());
-            G_impure.rescale(1.0 / G_scale_impure);
-            auto H_scale_impure = std::abs(H_impure.max());
-            H_impure.rescale(1.0 / H_scale_impure);
-
-            scalefactors_impure += std::log(G_scale_impure) + std::log(H_scale_impure);
+            G_impure.rescale(1.0 / G_scale);
+            H_impure.rescale(1.0 / H_scale);
 
             //=============================================================================================
 
@@ -958,7 +950,7 @@ namespace ATRG {
         G_flat = G_flat * H_flat.t();
         Z_impure = arma::sum(arma::sum(G_flat));
 
-        T result = Z_impure / Z * std::exp(scalefactors_impure - scalefactors);
+        T result = Z_impure / Z;
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<

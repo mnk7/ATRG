@@ -245,7 +245,8 @@ namespace ATRG {
     template <typename T>
     void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
                        T &error, T &residual_error, const bool compute_residual_error,
-                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
+                       std::vector<arma::Mat<T>> &E_i, std::vector<arma::Mat<T>> &F_i) {
         /*
          * indices A: all forward, alpha
          * indices D: all backward, beta
@@ -253,8 +254,8 @@ namespace ATRG {
          * indices Y: all backward, beta
          */
         // make separate squeezers for each not blocked mode
-        std::vector<arma::Mat<T>> E_i(forward_indices.size() - 1);
-        std::vector<arma::Mat<T>> F_i(forward_indices.size() - 1);
+        E_i.resize(forward_indices.size() - 1);
+        F_i.resize(forward_indices.size() - 1);
 
         for(uint index = 0; index < forward_indices.size(); ++index) {
             if(index == blocking_direction) {
@@ -312,6 +313,21 @@ namespace ATRG {
         for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {
             forward_dimensions_and_alpha[i] = all_dimensions[i];
         }
+    }
+
+
+
+    template <typename T>
+    void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
+                       T &error, T &residual_error, const bool compute_residual_error,
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+
+        std::vector<arma::Mat<T>> E_i;
+        std::vector<arma::Mat<T>> F_i;
+
+        squeeze_bonds(A, D, X, Y, G, H, blocking_direction, error, residual_error, compute_residual_error,
+                      forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                      E_i, F_i);
     }
 
 
@@ -623,6 +639,11 @@ namespace ATRG {
         // log(x + y) = log(x) + log(1 + y/x)
         logZ = (logScalefactors + std::log(1.0 + logZ * std::exp(-logScalefactors))) / volume;
 
+        if(std::isnan(logZ) || std::isinf(logZ)) {
+            std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
+            logZ = logScalefactors / volume;
+        }
+
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -799,32 +820,20 @@ namespace ATRG {
                        error, residual_error, compute_residual_error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated);
 
-            ATRG::Tensor<T> A_copy = A;
-            ATRG::Tensor<T> D_copy = D;
-            ATRG::Tensor<T> X_copy = X;
-            ATRG::Tensor<T> Y_copy = Y;
 
             auto forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
+            std::vector<arma::Mat<T>> E_i;
+            std::vector<arma::Mat<T>> F_i;
 
             // contract the double bonds of A, X in forward and B, D in backward direction
             squeeze_bonds(A, D, X, Y, G, H, blocking_direction,
                           error, residual_error, compute_residual_error,
-                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
+                          forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                          E_i, F_i);
 
-            ATRG::Tensor<T> throwaway_G_H;
-            // get impure H
-            forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
-            squeeze_bonds(A_copy, D_impure, X_copy, Y_impure, throwaway_G_H, H_impure, blocking_direction,
-                          error, residual_error, compute_residual_error,
-                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
+            squeeze(A_impure, X_impure, G_impure, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
+            squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
 
-            // get impure G
-            forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
-            squeeze_bonds(A_impure, D_copy, X_impure, Y_copy, G_impure, throwaway_G_H, blocking_direction,
-                          error, residual_error, compute_residual_error,
-                          forward_indices, backward_indices, forward_dimensions_and_alpha_copy, D_truncated);
-
-            forward_dimensions_and_alpha = forward_dimensions_and_alpha_copy;
 
             remaining_volume /= 2;
 
@@ -835,7 +844,7 @@ namespace ATRG {
             H.rescale(1.0 / H_scale);
 
             // V * scale / (V - 1) * scale from the impure result
-            scalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+            scalefactors += std::log(G_scale) + std::log(H_scale);
 
 
             auto G_scale_impure = std::abs(G_impure.max());
@@ -843,8 +852,7 @@ namespace ATRG {
             auto H_scale_impure = std::abs(H_impure.max());
             H_impure.rescale(1.0 / H_scale_impure);
 
-            scalefactors_impure += (remaining_volume - 1) * (std::log(G_scale) + std::log(H_scale))
-                                + std::log(G_scale_impure) + std::log(H_scale_impure);
+            scalefactors_impure += std::log(G_scale_impure) + std::log(H_scale_impure);
 
             //=============================================================================================
 

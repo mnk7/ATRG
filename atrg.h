@@ -685,8 +685,6 @@ namespace ATRG {
 
         long double Z = 0;
         long double Z_impure = 0;
-        long double scalefactors = 0;
-        long double scalefactors_impure = 0;
 
         auto lattice_sizes(lattice_dimensions);
         std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
@@ -766,9 +764,6 @@ namespace ATRG {
 
         // use the same isometry for pure and impure tensor
         A_impure = A;
-        // the C and D come from the second tensor, in this case a pure tensor
-        C_impure = C;
-        D_impure = D;
 
         // multiply U.t() at flat -> {alpha, backward_indices}
         // use the transpose instead to make the inflating cheaper
@@ -809,6 +804,10 @@ namespace ATRG {
         bool finished = false;
 
         while(!finished) {
+            // the C and D come from the second tensor, in this case a pure tensor
+            C_impure = C;
+            D_impure = D;
+
             //=============================================================================================
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!

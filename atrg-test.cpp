@@ -193,6 +193,25 @@ void test_flatten_and_inflate(TensorType &tensor) {
     std::cout << "    f-b flatten and inflate deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl << std::endl;
 
 
+    std::cout << "    single index row and other indices sorted flattening:" << std::endl;
+    std::vector<uint> one_to_order_indices(tensor.get_order() - 1);
+    std::iota(one_to_order_indices.begin(), one_to_order_indices.end(), 1);
+    tensor.flatten({0}, one_to_order_indices, savepoint);
+    flat = savepoint;
+    tensor.inflate({0}, one_to_order_indices, flat);
+    tensor.flatten({0}, one_to_order_indices, endpoint);
+
+    std::cout << "      deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl << std::endl;
+
+    std::cout << "    single index column and other indices sorted flattening:" << std::endl;
+    tensor.flatten(one_to_order_indices, {0}, savepoint);
+    flat = savepoint;
+    tensor.inflate(one_to_order_indices, {0}, flat);
+    tensor.flatten(one_to_order_indices, {0}, endpoint);
+
+    std::cout << "      deviation: " << arma::norm(endpoint - savepoint, "fro") << std::endl << std::endl;
+
+
 
     std::cout << "    naive flattening:" << std::endl;
     // testing naive flattening and naive inflating:
@@ -318,9 +337,8 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    //test_svds(tensor_dense);
+    //test_svds(tensor);
     //test_flatten_and_inflate(tensor);
-    //test_flatten_and_inflate(tensor_dense);
     //performance_test_flatten_inflate<ATRG::SpTensor<double>>(generator);
     //performance_test_flatten_inflate<ATRG::Tensor<double>>(generator);
 

@@ -536,6 +536,22 @@ namespace ATRG {
     }
 
 
+    /**
+     * compute the last trace; G and H have the forward and backward indices first
+     * and then their common bond index last
+     */
+    template<typename T>
+    T trace(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H) {
+        T result = 0;
+
+        for(decltype(G.get_size()) i = 0; i < G.get_size(); ++i) {
+            result += G(i) * H(i);
+        }
+
+        return result;
+    }
+
+
 
     /**
      * compute the log value of the partition sum for the given tensor and a lattice of given dimensions
@@ -741,22 +757,20 @@ namespace ATRG {
         }
 
 
-        // make T from G and H:
-        arma::Mat<T> G_flat;
-        G.flatten(forward_indices, {G.get_order() - 1}, G_flat);
-
-        arma::Mat<T> H_flat;
-        H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
-
-        G_flat = G_flat * H_flat.t();
-        logZ = arma::sum(arma::sum(G_flat));
+        auto lastZ = trace(G, H);
 
         // log(x + y) = log(x) + log(1 + y/x)
-        logZ = (logScalefactors + std::log(1.0 + logZ * std::exp(-logScalefactors))) / volume;
+        logZ = (logScalefactors + std::log(1.0 + lastZ * std::exp(-logScalefactors))) / volume;
 
         if(std::isnan(logZ) || std::isinf(logZ)) {
             std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
             logZ = logScalefactors / volume;
+
+            auto error_last_step = std::log(std::abs(lastZ)) * std::log(std::abs(lastZ))
+                                    / (logScalefactors * logScalefactors);
+
+            error += error_last_step;
+            residual_error += error_last_step;
         }
 
 
@@ -1031,22 +1045,8 @@ namespace ATRG {
         }
 
 
-        // make T from G and H:
-        arma::Mat<T> G_flat;
-        G.flatten(forward_indices, {G.get_order() - 1}, G_flat);
-
-        arma::Mat<T> H_flat;
-        H.flatten(forward_indices, {H.get_order() - 1}, H_flat);
-
-        G_flat = G_flat * H_flat.t();
-        Z = arma::sum(arma::sum(G_flat));
-
-
-        G_impure.flatten(forward_indices, {G_impure.get_order() - 1}, G_flat);
-        H_impure.flatten(forward_indices, {H_impure.get_order() - 1}, H_flat);
-
-        G_flat = G_flat * H_flat.t();
-        Z_impure = arma::sum(arma::sum(G_flat));
+        Z = trace(G, H);
+        Z_impure = trace(G_impure, H_impure);
 
         T result = Z_impure / Z;
 

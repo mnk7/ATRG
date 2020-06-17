@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <valarray>
 #include <algorithm>
 
 #include <armadillo>
@@ -48,28 +49,38 @@ namespace ATRG {
         std::vector<uint> get_dimensions() { return dimensions; }
         uint get_base(const uint i) const { return base[i]; }
 
-        arma::Mat<T>& data() { return t; }
-        arma::Mat<T> data_copy() { return t; };
+        arma::Mat<T>& data() { return arma::Mat<T>(&t[0], size, 1, false, true); }
+        arma::Mat<T> data_copy() { return arma::Mat<T>(&t[0], size, 1, false, true); };
 
 
-        T operator()(const uint flatindex) {
-            return t(flatindex);
+        T& operator()(const uint flatindex) {
+            return t[flatindex];
+        }
+
+        const T& operator()(const uint flatindex) const {
+            return t[flatindex];
         }
 
         void set(const uint flatindex, T value) {
-            t(flatindex) = value;
+            t[flatindex] = value;
         }
 
-        T operator()(const std::vector<uint>& index) {
-            return t(flatindex(index));
+        T& operator()(const std::vector<uint>& index) {
+            return t[flatindex(index)];
+        }
+
+        const T& operator()(const std::vector<uint>& index) const {
+            return t[flatindex(index)];
         }
 
         void set(const std::vector<uint>& index, T value) {
-            t(flatindex(index)) = value;
+            t[flatindex(index)] = value;
         }
 
         friend std::ostream &operator<<(std::ostream &out, Tensor<T> &t) {
-            out << t.data();
+            arma::Mat<T> flat;
+            flatten_single_index(0, flat);
+            out << flat.data();
             return out;
         }
 
@@ -81,9 +92,12 @@ namespace ATRG {
         // dimensions of each index
         std::vector<uint> dimensions;
         // tensor content
-        arma::Mat<T> t;
+        std::valarray<T> t;
         // base factor for each index -> hypercube for elements of the indices
         std::vector<uint> base;
+
+        void flatten_single_index(uint k, arma::Mat<T> &flat);
+        void inflate_single_index(uint k, arma::Mat<T> &flat);
     };
 
 
@@ -114,8 +128,8 @@ namespace ATRG {
         }
 
         size = base[order];
-        t.set_size(size);
-        t.clean(0);
+        t.resize(size);
+        zero();
     }
 
 
@@ -132,8 +146,8 @@ namespace ATRG {
         }
 
         size = base[order];
-        t.set_size(size);
-        t.clean(0);
+        t.resize(size);
+        zero();
     }
 
 
@@ -158,7 +172,7 @@ namespace ATRG {
 
         auto old_dimensions = dimensions;
         auto old_base = base;
-        arma::Mat<T> new_t(size, 1);
+        std::valarray<T> new_t(size);
 
         for(decltype(new_order_indices.size()) i = 0; i < new_order_indices.size(); ++i) {
             dimensions[i] = old_dimensions[new_order_indices[i]];
@@ -170,7 +184,7 @@ namespace ATRG {
         }
 
         #pragma omp parallel for
-        for(uint i = 0; i < t.n_elem; ++i) {
+        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
             auto old_indices = multiindex(i, old_base);
             decltype(old_indices) new_indices(old_indices.size());
 
@@ -178,7 +192,7 @@ namespace ATRG {
                 new_indices[j] = old_indices[new_order_indices[j]];
             }
 
-            new_t(flatindex(new_indices)) = t(i);
+            new_t[flatindex(new_indices)] = t[i];
         }
 
 
@@ -202,7 +216,7 @@ namespace ATRG {
                 os << ind[j] << "\t";
             }
 
-            os << ind.back() << "] = " << t(i) << std::endl;
+            os << ind.back() << "] = " << t[i] << std::endl;
         }
 
         std::cout << std::endl;
@@ -225,7 +239,7 @@ namespace ATRG {
     inline T Tensor<T>::Frobnorm2() {
         T F = 0;
 
-        t.for_each([&F](T &element) {F += arma::abs(element) * arma::abs(element);});
+        std::for_each(t.begin(), t.end(), [&F](T &element) {F += std::abs(element) * std::abs(element);});
 
         return F;
     }
@@ -254,7 +268,7 @@ namespace ATRG {
      */
     template <class T>
     inline void Tensor<T>::zero() {
-        t.clean(0);
+        rescale(0);
     }
 
 
@@ -315,6 +329,33 @@ namespace ATRG {
     }
 
 
+    template <class T>
+    inline void Tensor<T>::flatten_single_index(uint k, arma::Mat<T> &flat) {
+        uint basecol = 0;
+
+        for(decltype(size) i = 0; i < size; i += base[k + 1]) {
+            // get all elements with the same value in the index above the singled out index
+            // all indices smaller than the index above the singled out index are now in the row
+            // the index we want to single out is in the column index -> transpose
+            flat.cols(basecol, basecol + base[k] - 1) = arma::Mat<T>(&t[i], base[k], dimensions[k], false, true).t();
+
+            basecol += base[k];
+        }
+    }
+
+
+    template <class T>
+    inline void Tensor<T>::inflate_single_index(uint k, arma::Mat<T> &flat) {
+        uint basecol = 0;
+
+        for(decltype(size) i = 0; i < size; i += base[k + 1]) {
+            arma::Mat<T>(&t[i], base[k], dimensions[k], false, true) = flat.cols(basecol, basecol + base[k] - 1).t();
+
+            basecol += base[k];
+        }
+    }
+
+
     /**
      * Flatten the tensor with the given indices identifying the rows and the rest of the indices identifying the columns.
      */
@@ -371,17 +412,36 @@ namespace ATRG {
          */
         if(std::is_sorted(all_indices.begin(), all_indices.end())) {
             // use the tensor's internal memory'
-            flat = arma::Mat<T>(t.memptr(), n_rows, n_cols, false, true);
+            flat = arma::Mat<T>(&t[0], n_rows, n_cols, false, true);
             return;
         }
 
-        flat.resize(n_rows, n_cols);
+
+        /*
+         * flatten only in one direction and the other indices are sorted
+         */
+        if(indices_columns.size() == 1 && std::is_sorted(indices_rows.begin(), indices_rows.end())) {
+            flat.set_size(n_cols, n_rows);
+            flatten_single_index(indices_columns.back(), flat);
+            flat = flat.t();
+            return;
+        }
+
+        if(indices_rows.size() == 1 && std::is_sorted(indices_columns.begin(), indices_columns.end())) {
+            flat.set_size(n_rows, n_cols);
+            flatten_single_index(indices_rows.back(), flat);
+            return;
+        }
+
+
 
         /*
          * naive case: compute the position of every tensor element in the flat matrix
          */
+        flat.set_size(n_rows, n_cols);
+
         #pragma omp parallel for
-        for(uint i = 0; i < t.n_elem; ++i) {
+        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
             auto tensor_indices = multiindex(i);
 
             uint row_index = 0;
@@ -398,7 +458,7 @@ namespace ATRG {
                 col_index += tensor_indices[indices_columns[j]] * base_cols[j];
             }
 
-            flat(row_index, col_index) = t(i);
+            flat(row_index, col_index) = t[i];
         }
     }
 
@@ -450,9 +510,28 @@ namespace ATRG {
          * e.g.: {0 1 2}, {3 4}
          */
         if(std::is_sorted(all_indices.begin(), all_indices.end())) {
-            t = arma::Mat<T>(flat.memptr(), size, 1, false, true);
+            arma::Mat<T>(&t[0], size, 1, false, true) = flat;
             return;
         }
+
+
+
+        /*
+         * flatten in one direction only and the other indices are ordered
+         */
+        if(indices_columns.size() == 1 && std::is_sorted(indices_rows.begin(), indices_rows.end())) {
+            flat = flat.t();
+            inflate_single_index(indices_columns.back(), flat);
+            flat.set_size(0);
+            return;
+        }
+
+        if(indices_rows.size() == 1 && std::is_sorted(indices_columns.begin(), indices_columns.end())) {
+            inflate_single_index(indices_rows.back(), flat);
+            flat.set_size(0);
+            return;
+        }
+
 
 
         /*
@@ -473,7 +552,7 @@ namespace ATRG {
 
 
         #pragma omp parallel for
-        for(uint i = 0; i < t.n_elem; ++i) {
+        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
             auto tensor_indices = multiindex(i);
 
             uint row_index = 0;
@@ -490,7 +569,7 @@ namespace ATRG {
                 col_index += tensor_indices[indices_columns[j]] * base_cols[j];
             }
 
-            t(i) = flat(row_index, col_index);
+            t[i] = flat(row_index, col_index);
         }
 
         flat.set_size(0);

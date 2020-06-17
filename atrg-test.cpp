@@ -321,12 +321,12 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({6, 6, 6, 6});
+    ATRG::Tensor<double> tensor({6, 8, 6, 8});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor, 0.1);
 
-    ATRG::Tensor<double> impurity({6, 6, 6, 6});
+    ATRG::Tensor<double> impurity({6, 8, 6, 8});
     ascending_Tensor(impurity, 1.1);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});

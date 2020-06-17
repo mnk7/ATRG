@@ -576,10 +576,6 @@ namespace ATRG {
             }
         }
 
-
-        long double logZ = 0;
-        long double logScalefactors = 0;
-
         auto lattice_sizes(lattice_dimensions);
         std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
         auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
@@ -592,6 +588,8 @@ namespace ATRG {
          */
         T error = 0;
         T residual_error = 0;
+
+        long double logScalefactors = 0;
 
         uint physical_dimension = tensor.get_order() / 2;
 
@@ -760,7 +758,7 @@ namespace ATRG {
         auto lastZ = trace(G, H);
 
         // log(x + y) = log(x) + log(1 + y/x)
-        logZ = (logScalefactors + std::log(1.0 + lastZ * std::exp(-logScalefactors))) / volume;
+        long double logZ = (logScalefactors + std::log(1.0 + lastZ * std::exp(-logScalefactors))) / volume;
 
         if(std::isnan(logZ) || std::isinf(logZ)) {
             std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
@@ -810,10 +808,6 @@ namespace ATRG {
                 throw 0;
             }
         }
-
-
-        long double Z = 0;
-        long double Z_impure = 0;
 
         auto lattice_sizes(lattice_dimensions);
         std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
@@ -1045,11 +1039,8 @@ namespace ATRG {
         }
 
 
-        Z = trace(G, H);
-        Z_impure = trace(G_impure, H_impure);
-
-        T result = Z_impure / Z;
-
+        T Z = trace(G, H);
+        T Z_impure = trace(G_impure, H_impure);
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1057,7 +1048,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {result, std::sqrt(error), std::sqrt(residual_error)};
+        return {Z_impure / Z, std::sqrt(error), std::sqrt(residual_error)};
     }
 }
 

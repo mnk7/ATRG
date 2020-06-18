@@ -809,10 +809,6 @@ namespace ATRG {
             }
         }
 
-        auto lattice_sizes(lattice_dimensions);
-        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
-        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
-        auto remaining_volume = volume;
         /*
          * we compute this errors with error propagation:
          * if we multiply to quantities we compute:
@@ -859,9 +855,8 @@ namespace ATRG {
         auto backward_dimensions_and_alpha(backward_dimensions);
         backward_dimensions_and_alpha.push_back(U.n_cols);
 
-        // we don't need the tensors from here on, so we free the memory
         tensor.reshape({0});
-        impurity.reshape({0});
+
 
         // create A, B, C, D tensors from our SVD results:
         ATRG::Tensor<T> A(forward_dimensions_and_alpha);
@@ -894,6 +889,8 @@ namespace ATRG {
         B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat);
 
 
+        // we don't need the tensors from here on, so we free the memory
+        impurity.reshape({0});
         US.set_size(0);
         SVp.set_size(0);
 
@@ -951,7 +948,6 @@ namespace ATRG {
             forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
-
             // contract the double bonds of A, X in forward and B, D in backward direction
             squeeze_bonds(A, D, X, Y, G, H, blocking_direction,
                           error, residual_error, compute_residual_error,
@@ -961,8 +957,6 @@ namespace ATRG {
             squeeze(A_impure, X_impure, G_impure, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
             squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
 
-
-            remaining_volume /= 2;
 
             // rescale G and H
             auto G_scale = std::abs(G.max());

@@ -950,9 +950,6 @@ namespace ATRG {
             C_impure = C;
             D_impure = D;
 
-            std::cout << arma::max(A_impure.data_copy() - A.data_copy()) << " " << arma::max(B_impure.data_copy() - B.data_copy())
-                      << arma::max(C_impure.data_copy() - C.data_copy()) << " " << arma::max(D_impure.data_copy() - D.data_copy()) << std::endl;
-
             //=============================================================================================
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
@@ -971,8 +968,6 @@ namespace ATRG {
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M, V_M);
 
-            std::cout << arma::max(X_impure.data_copy() - X.data_copy()) << " " << arma::max(Y_impure.data_copy() - Y.data_copy()) << std::endl;
-
 
             forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
             std::vector<arma::Mat<T>> E_i;
@@ -985,9 +980,6 @@ namespace ATRG {
 
             squeeze(A_impure, X_impure, G_impure, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
             squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
-
-            std::cout << arma::max(G_impure.data_copy() - G.data_copy()) << " " << arma::max(H_impure.data_copy() - H.data_copy()) << std::endl;;
-
 
             // rescale G and H
             auto G_scale = std::abs(G.max());
@@ -1064,8 +1056,6 @@ namespace ATRG {
                                  error, residual_error, compute_residual_error,
                                  forward_indices, forward_dimensions_and_alpha,
                                  U_B, U_C, U_M);
-
-            std::cout << arma::max(A_impure.data_copy() - A.data_copy()) << " " << arma::max(B_impure.data_copy() - B.data_copy()) << std::endl;
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;

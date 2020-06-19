@@ -321,12 +321,12 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({3, 5, 3, 5});
+    ATRG::Tensor<double> tensor({6, 8, 6, 8});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor, 0.1);
 
-    ATRG::Tensor<double> impurity({3, 5, 3, 5});
+    ATRG::Tensor<double> impurity({6, 8, 6, 8});
     ascending_Tensor(impurity, 0.1);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
     //=============================================================================================
 
     //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {1, 1}, 3, true, ATRG::t_blocking);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {1, 1}, 6, true, ATRG::t_blocking);
 
     /**
      * C++11 version:

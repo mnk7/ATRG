@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
     //=============================================================================================
 
     //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {1, 1}, 6, true, ATRG::t_blocking);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {4, 4}, 6, true, ATRG::t_blocking);
 
     /**
      * C++11 version:

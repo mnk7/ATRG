@@ -207,11 +207,11 @@ namespace ATRG {
         X.flatten({0, 3}, {2, 1}, B_flat);
 
         // apply the isometries of the pure SVD to our matrix -> resembles S in pure SVD
-        arma::Mat<T> S = U_M.t() * B_flat * V_M;
-        S.for_each([](auto &element) {element = std::sqrt(std::abs(element));});
+        //arma::Mat<T> S = U_M.t() * B_flat * V_M;
+        //S.for_each([](auto &element) {element = std::sqrt(std::abs(element));});
 
-        B_flat = U_M * S;
-        C_flat = V_M * S.t();
+        B_flat = B_flat * V_M;
+        C_flat = V_M;
 
 
         uint truncated_dimension = U_M.n_cols;

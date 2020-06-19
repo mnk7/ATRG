@@ -137,10 +137,10 @@ namespace ATRG {
             residual_error += residual_error_B_t_C * residual_error_B_t_C;
         }
 
-        S.for_each([](auto &element) {element = std::sqrt(element);});
+        //S.for_each([](auto &element) {element = std::sqrt(element);});
 
         B_flat = U_times_S(U_M, S);
-        C_flat = U_times_S(V_M, S);
+        C_flat = V_M;
 
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
                            error, residual_error, compute_residual_error,

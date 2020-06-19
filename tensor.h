@@ -49,7 +49,7 @@ namespace ATRG {
         std::vector<uint> get_dimensions() { return dimensions; }
         uint get_base(const uint i) const { return base[i]; }
 
-        arma::Mat<T>& data() { return arma::Mat<T>(&t[0], size, 1, false, true); }
+        std::valarray<T>& data() { return t; }
         arma::Mat<T> data_copy() { return arma::Mat<T>(&t[0], size, 1, false, true); };
 
 

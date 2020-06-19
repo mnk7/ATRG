@@ -33,58 +33,34 @@ namespace ATRG {
      * helper function for swap_bonds; takes B_S, C_S as well as two isometries and construncts X and Y
      */
     template <typename T>
-    void assemble_new_bonds(ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, arma::Mat<T> &B_flat, arma::Mat<T> &C_flat, const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const uint blocking_direction,
+    void assemble_new_bonds(ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, arma::Mat<T> &X_flat, arma::Mat<T> &Y_flat, const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const uint blocking_direction,
                             T &error, T &residual_error, const bool compute_residual_error,
-                            const std::vector<uint> &forward_indices, const std::vector<uint> &not_blocked_indices, std::vector<uint> &forward_dimensions_and_alpha) {
+                            const std::vector<uint> &forward_indices, const std::vector<uint> &not_blocked_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint truncated_dimension) {
         uint mu_dimension = U_B.n_cols;
         uint nu_dimension = U_C.n_cols;
-
-        ATRG::Tensor<T> B({forward_dimensions_and_alpha.back(), mu_dimension, forward_dimensions_and_alpha.back(), nu_dimension});
-
-        // B.t() * C with indices: alpha, mu, beta, nu
-        B_flat = B_flat.t() * C_flat;
-        B.inflate({0, 1}, {2, 3}, B_flat);
-        B.flatten({0, 3}, {2, 1}, B_flat);
-
-
-        arma::Mat<T> U;
-        arma::Mat<T> V;
-        arma::Col<T> S;
-        // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U, V, S, forward_dimensions_and_alpha[blocking_direction]);
-
-        uint truncated_dimension = U.n_cols;
-
-        if(compute_residual_error) {
-            auto residual_error_B_t_C = residual_svd(B_flat, U, V, S);
-            residual_error += residual_error_B_t_C * residual_error_B_t_C;
-        }
-
-        S.for_each([](auto &element) {element = std::sqrt(element);});
 
 
         // X has indices: alpha, nu, x_trunc (index from SVD)
         X.reshape({forward_dimensions_and_alpha.back(), nu_dimension, truncated_dimension});
-        U = U_times_S(U, S);
-        X.inflate({0, 1}, {2}, U);
-        X.flatten({1}, {0, 2}, B_flat);
-        B_flat = U_C * B_flat;
+        X.inflate({0, 1}, {2}, X_flat);
+        X.flatten({1}, {0, 2}, X_flat);
+        X_flat = U_C * X_flat;
+
         // new indices: all forward indices, alpha
         forward_dimensions_and_alpha[blocking_direction] = truncated_dimension;
         X.reshape(forward_dimensions_and_alpha);
-        X.inflate(not_blocked_indices, {X.get_order() - 1, blocking_direction}, B_flat);
+        X.inflate(not_blocked_indices, {X.get_order() - 1, blocking_direction}, X_flat);
 
 
         // Y has indices: beta, mu, x_trunc (index from SVD)
         Y.reshape({forward_dimensions_and_alpha.back(), mu_dimension, truncated_dimension});
-        V = U_times_S(V, S);
-        Y.inflate({0, 1}, {2}, V);
-        Y.flatten({1}, {0, 2}, B_flat);
-        B_flat = U_B * B_flat;
+        Y.inflate({0, 1}, {2}, Y_flat);
+        Y.flatten({1}, {0, 2}, Y_flat);
+        Y_flat = U_B * Y_flat;
         // new indices: all backward indices, beta
         // -> backward and forward dimensions are the same!
         Y.reshape(forward_dimensions_and_alpha);
-        Y.inflate(not_blocked_indices, {Y.get_order() - 1, blocking_direction}, B_flat);
+        Y.inflate(not_blocked_indices, {Y.get_order() - 1, blocking_direction}, Y_flat);
     }
 
 
@@ -93,7 +69,7 @@ namespace ATRG {
     void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                     T &error, T &residual_error, const bool compute_residual_error,
                     const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
-                    arma::Mat<T> &U_B, arma::Mat<T> &U_C) {
+                    arma::Mat<T> &U_B, arma::Mat<T> &U_C, arma::Mat<T> &U_M, arma::Mat<T> &V_M) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -142,9 +118,33 @@ namespace ATRG {
         C.flatten({0}, {1, 2}, C_flat);
 
 
+        X.reshape({forward_dimensions_and_alpha.back(), mu_dimension, forward_dimensions_and_alpha.back(), nu_dimension});
+
+        // B.t() * C with indices: alpha, mu, beta, nu
+        B_flat = B_flat.t() * C_flat;
+        X.inflate({0, 1}, {2, 3}, B_flat);
+        X.flatten({0, 3}, {2, 1}, B_flat);
+
+
+        arma::Col<T> S;
+        // B_flat has indices: {alpha, nu} {beta, mu}
+        error += svd(B_flat, U_M, V_M, S, forward_dimensions_and_alpha[blocking_direction]);
+
+        uint truncated_dimension = U_M.n_cols;
+
+        if(compute_residual_error) {
+            auto residual_error_B_t_C = residual_svd(B_flat, U_M, V_M, S);
+            residual_error += residual_error_B_t_C * residual_error_B_t_C;
+        }
+
+        S.for_each([](auto &element) {element = std::sqrt(element);});
+
+        B_flat = U_times_S(U_M, S);
+        C_flat = U_times_S(V_M, S);
+
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
                            error, residual_error, compute_residual_error,
-                           forward_indices, not_blocked_indices, forward_dimensions_and_alpha);
+                           forward_indices, not_blocked_indices, forward_dimensions_and_alpha, truncated_dimension);
     }
 
 
@@ -156,10 +156,12 @@ namespace ATRG {
 
         arma::Mat<T> U_B;
         arma::Mat<T> U_C;
+        arma::Mat<T> U_M;
+        arma::Mat<T> V_M;
 
         swap_bonds(B, C, X, Y, blocking_direction, error, residual_error, compute_residual_error,
                    forward_indices, forward_dimensions_and_alpha, D_truncated,
-                   U_B, U_C);
+                   U_B, U_C, U_M, V_M);
     }
 
 
@@ -168,7 +170,7 @@ namespace ATRG {
     void swap_impure_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                            T &error, T &residual_error, const bool compute_residual_error,
                            const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
-                           const arma::Mat<T> &U_B, const arma::Mat<T> &U_C) {
+                           const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const arma::Mat<T> &U_M, const arma::Mat<T> &V_M) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -185,21 +187,38 @@ namespace ATRG {
         // make a tensor of S*V with indices: x_trunc, alpha, mu
         // forward and backward dimensions are the same!
         B.reshape({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), mu_dimension});
-        B_flat = U_B.t() * B_flat;
+        B_flat = B_flat.t() * U_B;
         B.inflate({0, 1}, {2}, B_flat);
         B.flatten({0}, {1, 2}, B_flat);
 
 
         // make a tensor of S*V with indices: x_trunc, beta, nu
         C.reshape({forward_dimensions_and_alpha[blocking_direction], forward_dimensions_and_alpha.back(), nu_dimension});
-        C_flat = U_C.t() * C_flat;
+        C_flat = C_flat.t() * U_C;
         C.inflate({0, 1}, {2}, C_flat);
         C.flatten({0}, {1, 2}, C_flat);
 
 
+        X.reshape({forward_dimensions_and_alpha.back(), mu_dimension, forward_dimensions_and_alpha.back(), nu_dimension});
+
+        // B.t() * C with indices: alpha, mu, beta, nu
+        B_flat = B_flat.t() * C_flat;
+        X.inflate({0, 1}, {2, 3}, B_flat);
+        X.flatten({0, 3}, {2, 1}, B_flat);
+
+        // apply the isometries of the pure SVD to our matrix -> resembles S in pure SVD
+        arma::Mat<T> S = U_M.t() * B_flat * V_M;
+        S.for_each([](auto &element) {element = std::sqrt(std::abs(element));});
+
+        B_flat = U_M * S;
+        C_flat = V_M * S.t();
+
+
+        uint truncated_dimension = U_M.n_cols;
+
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
                            error, residual_error, compute_residual_error,
-                           forward_indices, not_blocked_indices, forward_dimensions_and_alpha);
+                           forward_indices, not_blocked_indices, forward_dimensions_and_alpha, truncated_dimension);
     }
 
 
@@ -415,7 +434,7 @@ namespace ATRG {
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
                        T &error, T &residual_error, const bool compute_residual_error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
-                       arma::Mat<T> &U_G, arma::Mat<T> &U_H) {
+                       arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
         arma::Mat<T> flat;
         // order in G: all forward indices, contraction direction backward
         G.flatten(forward_indices, {G.get_order() - 1}, flat);
@@ -451,7 +470,6 @@ namespace ATRG {
         // reuse flat for K to save memory:
         flat = V_G.t() * V_H;
         arma::Col<T> S_K;
-        arma::Mat<T> U_K;
         arma::Mat<T> V_K;
         error += svd(flat, U_K, V_K, S_K);
 
@@ -493,9 +511,10 @@ namespace ATRG {
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha) {
         arma::Mat<T> U_G;
         arma::Mat<T> U_H;
+        arma::Mat<T> U_K;
 
         contract_bond(G, H, A, B, C, D, blocking_direction, error, residual_error, compute_residual_error,
-                      forward_indices, forward_dimensions_and_alpha, U_G, U_H);
+                      forward_indices, forward_dimensions_and_alpha, U_G, U_H, U_K);
     }
 
 
@@ -504,41 +523,27 @@ namespace ATRG {
     void contract_impure_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, const uint blocking_direction,
                               T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, const std::vector<uint> &forward_dimensions_and_alpha,
-                              arma::Mat<T> &U_G, arma::Mat<T> &U_H) {
+                              arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
 
-        arma::Mat<T> flat;
+        arma::Mat<T> flat = U_G * U_K;
+        A.reshape(forward_dimensions_and_alpha);
+        A.inflate(forward_indices, {A.get_order() - 1}, flat);
+
+
         // order in G: all forward indices, contraction direction backward
         G.flatten(forward_indices, {G.get_order() - 1}, flat);
-
-        arma::Mat<T> SV_G = U_G.t() * flat;
-
+        arma::Mat<T> SV_G = flat.t() * U_G;
 
         // H has the bond to G and the backward index in blocking direction swapped.
         auto backward_indices_in_H(forward_indices);
         backward_indices_in_H[blocking_direction] = H.get_order() - 1;
         H.flatten(backward_indices_in_H, {blocking_direction}, flat);
+        arma::Mat<T> SV_H = flat.t() * U_H;
 
-        arma::Mat<T> SV_H = U_H.t() * flat;
-
-
-        flat = SV_G.t() * SV_H;
-        arma::Col<T> S_K;
-        arma::Mat<T> U_K;
-        arma::Mat<T> V_K;
-        error += svd(flat, U_K, V_K, S_K, forward_dimensions_and_alpha.back());
-
-        if(compute_residual_error) {
-            auto residual_error_K = residual_svd(flat, U_K, V_K, S_K);
-            residual_error += residual_error_K * residual_error_K;
-        }
-
-        flat = U_G * U_K;
-        A.reshape(forward_dimensions_and_alpha);
-        A.inflate(forward_indices, {A.get_order() - 1}, flat);
-
-
-        arma::Mat<T> SV_K = U_times_S(V_K, S_K);
-        flat = U_H * SV_K;
+        // K = SV_G.t() * SV_H; We want U_K.t() * K to get S_K * V_K,
+        // but we transpose the operation to make the flattening easier
+        flat = SV_H.t() * SV_G * U_K;
+        flat = U_H * flat;
         B.reshape(forward_dimensions_and_alpha);
         B.inflate(forward_indices, {B.get_order() - 1}, flat);
     }
@@ -945,21 +950,28 @@ namespace ATRG {
             C_impure = C;
             D_impure = D;
 
+            std::cout << arma::max(A_impure.data_copy() - A.data_copy()) << " " << arma::max(B_impure.data_copy() - B.data_copy())
+                      << arma::max(C_impure.data_copy() - C.data_copy()) << " " << arma::max(D_impure.data_copy() - D.data_copy()) << std::endl;
+
             //=============================================================================================
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
             auto forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
             arma::Mat<T> U_B;
             arma::Mat<T> U_C;
+            arma::Mat<T> U_M;
+            arma::Mat<T> V_M;
             swap_bonds(B, C, X, Y, blocking_direction,
                        error, residual_error, compute_residual_error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated,
-                       U_B, U_C);
+                       U_B, U_C, U_M, V_M);
 
             swap_impure_bonds(B_impure, C_impure, X_impure, Y_impure, blocking_direction,
                               error, residual_error, compute_residual_error,
                               forward_indices, forward_dimensions_and_alpha_copy,
-                              U_B, U_C);
+                              U_B, U_C, U_M, V_M);
+
+            std::cout << arma::max(X_impure.data_copy() - X.data_copy()) << " " << arma::max(Y_impure.data_copy() - Y.data_copy()) << std::endl;
 
 
             forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
@@ -973,6 +985,8 @@ namespace ATRG {
 
             squeeze(A_impure, X_impure, G_impure, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
             squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
+
+            std::cout << arma::max(G_impure.data_copy() - G.data_copy()) << " " << arma::max(H_impure.data_copy() - H.data_copy()) << std::endl;;
 
 
             // rescale G and H
@@ -1039,18 +1053,19 @@ namespace ATRG {
                 }
             }
 
+            // reuse U_B, U_C, U_M as U_G, U_H, U_K
             // make new A, B, C, D from G and H
-            arma::Mat<T> U_G;
-            arma::Mat<T> U_H;
             contract_bond(G, H, A, B, C, D, old_blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, forward_dimensions_and_alpha,
-                          U_G, U_H);
+                          U_B, U_C, U_M);
 
             contract_impure_bond(G_impure, H_impure, A_impure, B_impure, old_blocking_direction,
                                  error, residual_error, compute_residual_error,
                                  forward_indices, forward_dimensions_and_alpha,
-                                 U_G, U_H);
+                                 U_B, U_C, U_M);
+
+            std::cout << arma::max(A_impure.data_copy() - A.data_copy()) << " " << arma::max(B_impure.data_copy() - B.data_copy()) << std::endl;
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;

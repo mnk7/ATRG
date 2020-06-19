@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
     ascending_Tensor(tensor, 0.1);
 
     ATRG::Tensor<double> impurity({6, 8, 6, 8});
-    ascending_Tensor(impurity, 1.1);
+    ascending_Tensor(impurity, 0.2);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
     //random_Tensor(tensor_dense, generator);

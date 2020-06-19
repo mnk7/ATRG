@@ -12,6 +12,14 @@
 #include <tensor.h>
 #include <svd.h>
 
+#include <sys/resource.h>
+double get_usage() {
+	struct rusage usage;
+	getrusage(RUSAGE_SELF, &usage);
+
+	return static_cast<double>(usage.ru_maxrss) / 1e6;
+}
+
 namespace ATRG {
 
     enum BlockingMode {
@@ -663,6 +671,8 @@ namespace ATRG {
                   << " seconds" << std::endl;
         splittime = std::chrono::high_resolution_clock::now();
 
+        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
+
         //=============================================================================================
 
         // contract the lattice
@@ -722,6 +732,8 @@ namespace ATRG {
 
                         // block the next direction
                         ++blocking_direction;
+
+                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
                     }
                 }
 
@@ -744,6 +756,8 @@ namespace ATRG {
 
                         // block the next direction
                         --blocking_direction;
+
+                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
                     }
                 }
             }
@@ -753,6 +767,8 @@ namespace ATRG {
                           error, residual_error, compute_residual_error,
                           forward_indices, forward_dimensions_and_alpha);
         }
+
+        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
 
         auto lastZ = trace(G, H);
@@ -888,7 +904,6 @@ namespace ATRG {
         flat = flat.t() * U;
         B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat);
 
-
         // we don't need the tensors from here on, so we free the memory
         impurity.reshape({0});
         US.set_size(0);
@@ -911,6 +926,8 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
         splittime = std::chrono::high_resolution_clock::now();
+
+        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
         //=============================================================================================
 
@@ -992,6 +1009,8 @@ namespace ATRG {
 
                         // block the next direction
                         ++blocking_direction;
+
+                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
                     }
                 }
 
@@ -1014,6 +1033,8 @@ namespace ATRG {
 
                         // block the next direction
                         --blocking_direction;
+
+                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
                     }
                 }
             }
@@ -1031,6 +1052,8 @@ namespace ATRG {
                                  forward_indices, forward_dimensions_and_alpha,
                                  U_G, U_H);
         }
+
+        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
 
         T Z = trace(G, H);

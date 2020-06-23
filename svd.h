@@ -1,9 +1,31 @@
-#ifndef SVD
-#define SVD
+#ifndef SVD_H
+#define SVD_H
 
 #include <armadillo>
+#include <redsvd-h/include/RedSVD/RedSVD-h>
 
 namespace ATRG {
+
+
+    template <typename T>
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
+        arma::Mat<T> Q_copy = Q;
+        auto Q_eigen = Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>(Q_copy.memptr(), Q_copy.n_rows, Q_copy.n_cols);
+
+        RedSVD::RedSVD<decltype(Q_eigen)> redsvd;
+        redsvd.compute(Q_eigen, D);
+
+        auto U_eigen = redsvd.matrixU();
+        auto V_eigen = redsvd.matrixV();
+        auto S_eigen = redsvd.singularValues();
+
+        U = arma::Mat<T>(U_eigen.data(), U_eigen.rows(), U_eigen.cols(), false, true);
+        V = arma::Mat<T>(V_eigen.data(), V_eigen.rows(), V_eigen.cols(), false, true);
+        S = arma::Col<T>(S_eigen.data(), S_eigen.rows(), false, true);
+
+        return 0;
+    }
+
 
     /**
      * compute SVD of a sparse matrix by means of the eigenvalues of Q or with armadillos own svd function
@@ -35,7 +57,7 @@ namespace ATRG {
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
+    inline T arma_svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
             throw 0;
@@ -107,4 +129,4 @@ namespace ATRG {
 }
 
 
-#endif // SVD
+#endif // SVD_H

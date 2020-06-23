@@ -102,6 +102,22 @@ void test_svds(ATRG::Tensor<double> &tensor) {
 
 
 
+    std::cout << "    redsvd:" << std::endl;
+    starttime_svd = std::chrono::high_resolution_clock::now();
+
+    std::cout << "    relative truncation error: " << std::sqrt(ATRG::svd(flat, U, V, S)) << std::endl;
+
+    std::cout << "    Runtime: " <<
+                 std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::high_resolution_clock::now() - starttime_svd)
+                 .count() / 1e3
+              << " seconds" << std::endl;
+
+    std::cout << "    residual: " << ATRG::residual_svd(flat, U, V, S) << std::endl;
+    std::cout << S << std::endl << " -----" << std::endl;
+
+
+
     std::cout << "    arma::svd 'dc':" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 

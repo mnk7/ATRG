@@ -13,7 +13,7 @@ namespace ATRG {
         auto Q_eigen = Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>(Q_copy.memptr(), Q_copy.n_rows, Q_copy.n_cols);
 
         RedSVD::RedSVD<decltype(Q_eigen)> redsvd;
-        redsvd.compute(Q_eigen, D);
+        redsvd.compute(Q_eigen, D * D);
 
         auto U_eigen = redsvd.matrixU();
         auto V_eigen = redsvd.matrixV();
@@ -23,7 +23,17 @@ namespace ATRG {
         V = arma::Mat<T>(V_eigen.data(), V_eigen.rows(), V_eigen.cols(), false, true);
         S = arma::Col<T>(S_eigen.data(), S_eigen.rows(), false, true);
 
-        return 0;
+        // compute the error from the singular values
+        arma::Col<T> cumulative_sum = arma::cumsum(S * S);
+
+        S.resize(D);
+        U.resize(U.n_rows, S.n_elem);
+        V.resize(V.n_rows, S.n_elem);
+
+        // sum of all squared singular values - sum of kept squared singular vectors
+        //      / sum of all squared singular vectors
+        return (cumulative_sum[cumulative_sum.n_elem - 1] - cumulative_sum[D - 1])
+                / cumulative_sum[cumulative_sum.n_elem - 1];
     }
 
 
@@ -60,7 +70,9 @@ namespace ATRG {
     inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
-            throw 0;
+
+            std::cout << "  trying redsvd:" << std::endl;
+            return redsvd(Q, U, V, S, D);
         }
 
         // compute the error from the singular values

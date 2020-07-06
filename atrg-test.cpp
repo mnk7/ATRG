@@ -105,7 +105,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    redsvd:" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "    relative truncation error: " << std::sqrt(ATRG::svd(flat, U, V, S, std::min(flat.n_cols, flat.n_rows))) << std::endl;
+    std::cout << "    relative truncation error: " << std::sqrt(ATRG::redsvd(flat, U, V, S, std::min(flat.n_cols, flat.n_rows))) << std::endl;
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -337,12 +337,12 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({6, 8, 6, 8});
+    ATRG::Tensor<double> tensor({12, 8, 10, 12, 8, 10});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor, 0.1);
 
-    ATRG::Tensor<double> impurity({6, 8, 6, 8});
+    ATRG::Tensor<double> impurity({12, 8, 10, 12, 8, 10});
     ascending_Tensor(impurity, 0.1);
 
     //ATRG::Tensor<double> tensor_dense({10, 5, 10, 5});
@@ -361,7 +361,7 @@ int main(int argc, char **argv) {
     //=============================================================================================
 
     //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {4, 4}, 6, true, ATRG::t_blocking);
+    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {3, 3, 3}, 8, true, ATRG::t_blocking);
 
     /**
      * C++11 version:

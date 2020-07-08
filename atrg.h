@@ -69,7 +69,7 @@ namespace ATRG {
     void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                     T &error, T &residual_error, const bool compute_residual_error,
                     const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
-                    arma::Mat<T> &U_B, arma::Mat<T> &U_C, arma::Mat<T> &U_M) {
+                    arma::Mat<T> &U_B, arma::Mat<T> &U_C, arma::Mat<T> &U_M, arma::Col<T> &S_M) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -127,19 +127,20 @@ namespace ATRG {
 
 
         arma::Mat<T> V_M;
-        arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, V_M, S, forward_dimensions_and_alpha[blocking_direction]);
+        error += svd(B_flat, U_M, V_M, S_M, forward_dimensions_and_alpha[blocking_direction]);
 
         uint truncated_dimension = U_M.n_cols;
 
         if(compute_residual_error) {
-            auto residual_error_B_t_C = residual_svd(B_flat, U_M, V_M, S);
+            auto residual_error_B_t_C = residual_svd(B_flat, U_M, V_M, S_M);
             residual_error += residual_error_B_t_C * residual_error_B_t_C;
         }
 
-        B_flat = U_M;
-        C_flat = U_times_S(V_M, S);
+        S_M.for_each([](auto &element) {element = std::sqrt(element);});
+
+        B_flat = U_times_S(U_M, S_M);
+        C_flat = U_times_S(V_M, S_M);
 
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
                            error, residual_error, compute_residual_error,
@@ -156,10 +157,11 @@ namespace ATRG {
         arma::Mat<T> U_B;
         arma::Mat<T> U_C;
         arma::Mat<T> U_M;
+        arma::Col<T> S_M;
 
         swap_bonds(B, C, X, Y, blocking_direction, error, residual_error, compute_residual_error,
                    forward_indices, forward_dimensions_and_alpha, D_truncated,
-                   U_B, U_C, U_M);
+                   U_B, U_C, U_M, S_M);
     }
 
 
@@ -168,7 +170,7 @@ namespace ATRG {
     void swap_impure_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                            T &error, T &residual_error, const bool compute_residual_error,
                            const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
-                           const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const arma::Mat<T> &U_M) {
+                           const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const arma::Mat<T> &U_M, const arma::Col<T> &S_M) {
         arma::Mat<T> B_flat;
         arma::Mat<T> C_flat;
 
@@ -204,8 +206,11 @@ namespace ATRG {
         X.inflate({0, 1}, {2, 3}, B_flat);
         X.flatten({0, 3}, {2, 1}, B_flat);
 
-        C_flat = B_flat.t() * U_M;
-        B_flat = U_M;
+        arma::Col<T> S_M_inv(S_M);
+        S_M_inv.for_each([](auto &element) {element = 1.0 / element;});
+
+        C_flat = B_flat.t() * U_times_S(U_M, S_M_inv);
+        B_flat = U_times_S(U_M, S_M);
 
 
         uint truncated_dimension = U_M.n_cols;
@@ -944,15 +949,16 @@ namespace ATRG {
             arma::Mat<T> U_B;
             arma::Mat<T> U_C;
             arma::Mat<T> U_M;
+            arma::Col<T> S_M;
             swap_bonds(B, C, X, Y, blocking_direction,
                        error, residual_error, compute_residual_error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated,
-                       U_B, U_C, U_M);
+                       U_B, U_C, U_M, S_M);
 
             swap_impure_bonds(B_impure, C_impure, X_impure, Y_impure, blocking_direction,
                               error, residual_error, compute_residual_error,
                               forward_indices, forward_dimensions_and_alpha_copy,
-                              U_B, U_C, U_M);
+                              U_B, U_C, U_M, S_M);
 
 
             forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;

@@ -335,6 +335,111 @@ namespace ATRG {
 
 
 
+    /**
+     * SLOW VERSION!! UNUSED
+     * helper function for squeeze_bonds; applys the squeezers to A/X, Y/D
+     */
+    template <typename T>
+    std::vector<uint> squeeze_slow(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, ATRG::Tensor<T> &G, std::vector<arma::Mat<T>> E_i, const uint blocking_direction,
+                              const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices,
+                              const std::vector<uint> &forward_dimensions_and_alpha) {
+        arma::Mat<T> A_flat;
+        arma::Mat<T> X_flat;
+
+        A.flatten(forward_indices, {A.get_order() - 1}, A_flat);
+        X.flatten(forward_indices, {X.get_order() - 1}, X_flat);
+        // reuse A for the product A * X
+        A_flat = A_flat * X_flat.t();
+
+        // index order will be: x1, y1, z1, ... x2, y2, z2, ...
+        std::vector<uint> all_dimensions(forward_dimensions_and_alpha);
+        all_dimensions.resize(all_dimensions.size() - 1);
+        all_dimensions.insert(all_dimensions.end(), all_dimensions.begin(), all_dimensions.end());
+
+        auto all_indices(forward_indices);
+        all_indices.insert(all_indices.end(), backward_indices.begin(), backward_indices.end());
+
+        A.reshape(all_dimensions);
+        A.inflate(forward_indices, backward_indices, A_flat);
+
+
+        // prepare the G tensor; indices will be: x1, y1, ..., blocking_direction (other side)
+        std::vector<uint> new_dimensions(forward_dimensions_and_alpha.size());
+        new_dimensions[blocking_direction] = forward_dimensions_and_alpha[blocking_direction];
+        new_dimensions.back() = forward_dimensions_and_alpha[blocking_direction];
+
+        for(decltype(E_i.size()) i = 0; i < E_i.size(); ++i) {
+            uint index = i;
+            if(index >= blocking_direction) {
+                ++index;
+            }
+
+            new_dimensions[index] = E_i[i].n_cols;
+        }
+
+        G.reshape(new_dimensions);
+
+
+        // for every element of G we have to sum over all the row indices of all E_i's.
+        uint number_values_squeezed_indices = 1;
+        // we use this basis to compute the values of the squeezed indices in the internal sum
+        std::vector<uint> basis_internal_sum(E_i.size() + 1, 1);
+
+        for(decltype(E_i.size()) i = 0; i < E_i.size(); ++i) {
+            number_values_squeezed_indices *= E_i[i].n_rows;
+            basis_internal_sum[i + 1] = basis_internal_sum[i] * E_i[i].n_rows;
+        }
+
+
+        #pragma omp parallel for
+        for(decltype(G.get_size()) i = 0; i < G.get_size(); ++i) {
+            auto G_indices = G.multiindex(i);
+            T G_element = 0;
+
+            // continuosly update the indices in A
+            std::vector<uint> A_indices(A.get_order());
+            // fill in the forward index in blocking direction
+            A_indices[blocking_direction] = G_indices[blocking_direction];
+            // fill in the backward index in blocking direction;
+            A_indices[forward_indices.size() + blocking_direction] = G_indices.back();
+
+            // sum over all squeezed indices
+            for(uint j = 0; j < number_values_squeezed_indices; ++j) {
+                // the tensors multiindes function can work with a random basis
+                auto squeezed_indices = G.multiindex(j, basis_internal_sum);
+                T summand = 1;
+
+                // collect all terms from the squeezers
+                // and compute the correct index values in A for this direction
+                for(decltype(E_i.size()) k = 0; k < E_i.size(); ++k) {
+                    uint G_index = k;
+                    if(G_index >= blocking_direction) {
+                        ++G_index;
+                    }
+
+                    summand *= E_i[k](squeezed_indices[k], G_indices[G_index]);
+
+
+                    uint forward_squeezed_index = squeezed_indices[k] % forward_dimensions_and_alpha[G_index];
+                    uint backward_squeezed_index = squeezed_indices[k] / forward_dimensions_and_alpha[G_index];
+
+                    A_indices[G_index] = forward_squeezed_index;
+                    A_indices[forward_indices.size() + G_index] = backward_squeezed_index;
+                }
+
+                summand *= A(A_indices);
+
+                G_element += summand;
+            }
+
+            G.set(i, G_element);
+        }
+
+        return new_dimensions;
+    }
+
+
+
     template <typename T>
     void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
                        T &error, T &residual_error, const bool compute_residual_error,

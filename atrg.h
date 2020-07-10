@@ -307,49 +307,12 @@ namespace ATRG {
 
             auto remaining_indices(all_indices);
             remaining_indices.erase(remaining_indices.begin() + index);
-
-
-            G.flatten(remaining_indices, {index}, A_flat);
-            auto all_indices_copy(all_indices);
-            // inflate in new ordering -> index last
-            all_indices_copy.erase(all_indices_copy.begin() + all_indices_copy.size() - 1);
-
-            auto G_dimensions = G.get_dimensions();
-            auto dimension = G_dimensions[index];
-            G_dimensions.erase(G_dimensions.begin() + index);
-            G_dimensions.push_back(dimension);
-            G.reshape(G_dimensions);
-
-            G.inflate(all_indices_copy, {static_cast<uint>(all_indices_copy.size())}, A_flat);
-
-
-            // now we single out the index in backward direction:
-            // we have already moved one index!
-            all_indices_copy = all_indices;
-            all_indices_copy.erase(all_indices_copy.begin() + index + number_backward_indices - 1);
-            G.flatten(all_indices_copy, {index + number_backward_indices - 1}, A_flat);
-
-            // the indices we want are now at the back -> inflate and single out both indices
-            all_indices_copy = all_indices;
-            all_indices_copy.erase(all_indices_copy.begin() + all_indices_copy.size() - 1);
-
-            dimension = G_dimensions[index + number_backward_indices - 1];
-            G_dimensions.erase(G_dimensions.begin() + index + number_backward_indices - 1);
-            G_dimensions.push_back(dimension);
-            G.reshape(G_dimensions);
-
-            G.inflate(all_indices_copy, {static_cast<uint>(all_indices_copy.size())}, A_flat);
-
-            all_indices_copy.erase(all_indices_copy.begin() + all_indices_copy.size() - 1);
-            G.flatten(all_indices_copy, {static_cast<uint>(all_indices_copy.size()), static_cast<uint>(all_indices_copy.size() + 1)}, A_flat);
-
-
             // we already remove an index!
             remaining_indices.erase(remaining_indices.begin() + index + number_backward_indices - 1);
 
 
             // single out y1, y2 or z1, z2 etc.
-            //G.flatten(remaining_indices, {index, index + number_backward_indices}, A_flat);
+            G.flatten(remaining_indices, {index, index + number_backward_indices}, A_flat);
             // remaining_indices, y_new -> the order decreases by one
             A_flat = A_flat * E_i[i];
 

@@ -231,7 +231,7 @@ void test_flatten_and_inflate(TensorType &tensor) {
 
     std::cout << "    naive flattening:" << std::endl;
     // testing naive flattening and naive inflating:
-    TensorType simple_tensor({2, 3, 4});
+    TensorType simple_tensor({2, 3, 4, 2});
     for(uint i = 0; i < simple_tensor.get_size(); ++i) {
         simple_tensor.set(i, i + 1);
     }
@@ -240,11 +240,11 @@ void test_flatten_and_inflate(TensorType &tensor) {
 
     decltype(simple_tensor.data_copy()) flat_int;
 
-    simple_tensor.flatten({1, 0}, {2}, flat_int);
+    simple_tensor.flatten({1, 0, 3}, {2}, flat_int);
 
     flat_int.print();
 
-    simple_tensor.inflate({1, 0}, {2}, flat_int);
+    simple_tensor.inflate({1, 0, 3}, {2}, flat_int);
 
     int difference = 0;
     for(uint i = 0; i < simple_tensor.get_size(); ++i) {
@@ -257,9 +257,8 @@ void test_flatten_and_inflate(TensorType &tensor) {
 
     std::cout << "    test reorder:" << std::endl;
 
-    simple_tensor.reorder({2, 0, 1});
-    simple_tensor.reorder({2, 0, 1});
-    simple_tensor.reorder({2, 0, 1});
+    simple_tensor.reorder({2, 3, 0, 1});
+    simple_tensor.reorder({2, 3, 0, 1});
 
     simple_tensor.print();
 

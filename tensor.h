@@ -170,33 +170,43 @@ namespace ATRG {
             throw 0;
         }
 
-        auto old_dimensions = dimensions;
-        auto old_base = base;
-        std::valarray<T> new_t(size);
 
-        for(decltype(new_order_indices.size()) i = 0; i < new_order_indices.size(); ++i) {
-            dimensions[i] = old_dimensions[new_order_indices[i]];
-        }
+        // flatten and inflate single indices until we reach the desired order
+        std::vector<uint> current_order_indices(new_order_indices);
+        std::iota(current_order_indices.begin(), current_order_indices.end(), 0);
 
-        base[0] = 1;
-        for (decltype(order) i = 0; i < order; ++i) {
-            base[i + 1] = base[i] * dimensions[i];
-        }
+        // the left over index should be in the correct position
+        for(decltype(new_order_indices.size()) i = 0; i < new_order_indices.size() - 1; ++i) {
+            if(new_order_indices[i] != current_order_indices[i]) {
+                // move the index at new_order_indices[i] to position i:
+                // find the curren position of that index:
+                uint current_position_index = current_order_indices.size();
+                for(uint j = i + 1; j < current_order_indices.size(); ++j) {
+                    if(current_order_indices[j] == new_order_indices[i]) {
+                        current_position_index = j;
+                        break;
+                    }
+                }
 
-        #pragma omp parallel for
-        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
-            auto old_indices = multiindex(i, old_base);
-            decltype(old_indices) new_indices(old_indices.size());
+                arma::Mat<T> flat;
+                flatten_single_index(current_position_index, flat);
 
-            for(decltype(new_indices.size()) j = 0; j < new_indices.size(); ++j) {
-                new_indices[j] = old_indices[new_order_indices[j]];
+                current_order_indices.erase(current_order_indices.begin() + current_position_index);
+                current_order_indices.insert(current_order_indices.begin() + i, new_order_indices[i]);
+
+                auto dimension = dimensions[current_position_index];
+                dimensions.erase(dimensions.begin() + current_position_index);
+                dimensions.insert(dimensions.begin() + i, dimension);
+
+                for (decltype(order) k = i; k < order; ++k) {
+                    base[k + 1] = base[k] * dimensions[k];
+                }
+
+                inflate_single_index(i, flat);
             }
-
-            new_t[flatindex(new_indices)] = t[i];
         }
 
-
-        t = new_t;
+        return;
     }
 
 
@@ -331,6 +341,8 @@ namespace ATRG {
 
     template <class T>
     inline void Tensor<T>::flatten_single_index(uint k, arma::Mat<T> &flat) {
+        flat.set_size(dimensions[k], size / dimensions[k]);
+
         uint basecol = 0;
 
         for(decltype(size) i = 0; i < size; i += base[k + 1]) {
@@ -435,31 +447,15 @@ namespace ATRG {
 
 
 
-        /*
-         * naive case: compute the position of every tensor element in the flat matrix
-         */
-        flat.set_size(n_rows, n_cols);
+        auto old_dimensions = dimensions;
+        auto old_t = t;
 
-        #pragma omp parallel for
-        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
-            auto tensor_indices = multiindex(i);
+        reorder(all_indices);
+        // use the tensor's internal memory'
+        flat = arma::Mat<T>(&t[0], n_rows, n_cols, false, true);
 
-            uint row_index = 0;
-            uint col_index = 0;
-
-            /*
-             * get the tensor indices in the ordering given by indices_rows and compute the position in the matrix row with the base from above
-             */
-            for(decltype(indices_rows.size()) j = 0; j < indices_rows.size(); ++j) {
-                row_index += tensor_indices[indices_rows[j]] * base_rows[j];
-            }
-
-            for(decltype(indices_columns.size()) j = 0; j < indices_columns.size(); ++j) {
-                col_index += tensor_indices[indices_columns[j]] * base_cols[j];
-            }
-
-            flat(row_index, col_index) = t[i];
-        }
+        reshape(old_dimensions);
+        t = old_t;
     }
 
 
@@ -534,45 +530,22 @@ namespace ATRG {
 
 
 
-        /*
-         * naive case: compute the position of every tensor element in the flat matrix
-         */
-        // create bases to compute the indices of the tensor elements in the flat matrix
-        // the last entry contains the total number of elements
-        std::vector<uint> base_rows(indices_rows.size() + 1, 1);
-        std::vector<uint> base_cols(indices_columns.size() + 1, 1);
+        auto old_dimensions = dimensions;
+        // prepare the tensor so that we can move the flat matrix to the internal memory
+        auto new_dimensions = dimensions;
+        // figure out how to reorder the tensor to get the original index order
+        auto all_indices_new_order = all_indices;
 
-        for(decltype(indices_rows.size()) i = 0; i < indices_rows.size(); ++i) {
-            base_rows[i + 1] = base_rows[i] * dimensions[indices_rows[i]];
+        for(decltype(all_indices.size()) i = 0; i < all_indices.size(); ++i) {
+            new_dimensions[i] = old_dimensions[all_indices[i]];
+
+            all_indices_new_order[all_indices[i]] = i;
         }
 
-        for(decltype(indices_columns.size()) i = 0; i < indices_columns.size(); ++i) {
-            base_cols[i + 1] = base_cols[i] * dimensions[indices_columns[i]];
-        }
+        reshape(new_dimensions);
+        arma::Mat<T>(&t[0], size, 1, false, true) = flat;
 
-
-        #pragma omp parallel for
-        for(decltype(t.size()) i = 0; i < t.size(); ++i) {
-            auto tensor_indices = multiindex(i);
-
-            uint row_index = 0;
-            uint col_index = 0;
-
-            /*
-             * get the tensor indices in the ordering given by indices_rows and compute the position in the matrix row with the base from above
-             */
-            for(decltype(indices_rows.size()) j = 0; j < indices_rows.size(); ++j) {
-                row_index += tensor_indices[indices_rows[j]] * base_rows[j];
-            }
-
-            for(decltype(indices_columns.size()) j = 0; j < indices_columns.size(); ++j) {
-                col_index += tensor_indices[indices_columns[j]] * base_cols[j];
-            }
-
-            t[i] = flat(row_index, col_index);
-        }
-
-        flat.set_size(0);
+        reorder(all_indices_new_order);
     }
     
 }

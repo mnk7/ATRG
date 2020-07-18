@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include <armadillo>
-#include <omp.h>
 
 typedef unsigned int uint;
 
@@ -205,8 +204,6 @@ namespace ATRG {
                 inflate_single_index(i, flat);
             }
         }
-
-        return;
     }
 
 

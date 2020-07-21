@@ -362,11 +362,11 @@ namespace ATRG {
 
             // compute an isometry from A and X
             arma::Mat<T> U_P;
-            isometry(A, X, U_P, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, 2 * D_truncated);
+            isometry(A, X, U_P, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, D_truncated * D_truncated);
 
             // repeat for Y and D
             arma::Mat<T> U_Q;
-            isometry(Y, D, U_Q, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, 2 * D_truncated);
+            isometry(Y, D, U_Q, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, D_truncated * D_truncated);
 
             // insert the isometries U/V between A-X and Y-D: U_P_T - U_P = U_Q - U_Q_T
             // and remodel U_P = U_Q to get one instead of two bonds

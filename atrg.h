@@ -83,7 +83,7 @@ namespace ATRG {
 
         arma::Mat<T> V_B;
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, V_B, S_B, 2 * D_truncated);
+        error += svd(B_flat, U_B, V_B, S_B, D_truncated);
 
         if(compute_residual_error) {
             auto residual_error_b = residual_svd(B_flat, U_B, V_B, S_B);
@@ -102,7 +102,7 @@ namespace ATRG {
 
         arma::Mat<T> V_C;
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, V_C, S_C, 2 * D_truncated);
+        error += svd(C_flat, U_C, V_C, S_C, D_truncated);
 
         if(compute_residual_error) {
             auto residual_error_c = residual_svd(C_flat, U_C, V_C, S_C);
@@ -362,11 +362,11 @@ namespace ATRG {
 
             // compute an isometry from A and X
             arma::Mat<T> U_P;
-            isometry(A, X, U_P, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, D_truncated);
+            isometry(A, X, U_P, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, 2 * D_truncated);
 
             // repeat for Y and D
             arma::Mat<T> U_Q;
-            isometry(Y, D, U_Q, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, D_truncated);
+            isometry(Y, D, U_Q, index, error, residual_error, compute_residual_error, psi_indices, forward_dimensions_and_alpha, 2 * D_truncated);
 
             // insert the isometries U/V between A-X and Y-D: U_P_T - U_P = U_Q - U_Q_T
             // and remodel U_P = U_Q to get one instead of two bonds

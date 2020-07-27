@@ -338,7 +338,7 @@ namespace ATRG {
 
 
     template <typename T>
-    void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
+    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
                        T &error, T &residual_error, const bool compute_residual_error,
                        const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                        std::vector<arma::Mat<T>> &E_i, std::vector<arma::Mat<T>> &F_i) {
@@ -398,6 +398,20 @@ namespace ATRG {
             E_i[i] = U_P * U_times_S(U_N, S);
             F_i[i] = U_Q * U_times_S(V_N, S);
         }
+    }
+
+
+
+    template <typename T>
+    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
+                       T &error, T &residual_error, const bool compute_residual_error,
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
+        std::vector<arma::Mat<T>> E_i;
+        std::vector<arma::Mat<T>> F_i;
+
+        compute_squeezers(A, D, X, Y, G, H, blocking_direction, error, residual_error, compute_residual_error,
+                      forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                      E_i, F_i);
 
         // squeeze the bonds to make G and H
         auto all_dimensions = squeeze(A, X, G, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
@@ -408,20 +422,6 @@ namespace ATRG {
         for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {
             forward_dimensions_and_alpha[i] = all_dimensions[i];
         }
-    }
-
-
-
-    template <typename T>
-    void squeeze_bonds(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
-                       T &error, T &residual_error, const bool compute_residual_error,
-                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated) {
-        std::vector<arma::Mat<T>> E_i;
-        std::vector<arma::Mat<T>> F_i;
-
-        squeeze_bonds(A, D, X, Y, G, H, blocking_direction, error, residual_error, compute_residual_error,
-                      forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
-                      E_i, F_i);
     }
 
 
@@ -532,7 +532,7 @@ namespace ATRG {
         H.flatten(backward_indices_in_H, {blocking_direction}, flat);
         arma::Mat<T> SV_H = flat.t() * U_H;
 
-        // K = SV_G.t() * SV_H; We want U_K.t() * K to get S_K * V_K,
+        // K = SV_G.t() * SV_H; We want U_K.t() * K to get S_K * V_K.t(),
         // but we transpose the operation to make the flattening easier
         flat = SV_H.t() * SV_G * U_K;
         flat = U_H * flat;
@@ -690,7 +690,7 @@ namespace ATRG {
                        forward_indices, forward_dimensions_and_alpha, D_truncated);
 
             // contract the double bonds of A, X in forward and B, D in backward direction
-            squeeze_bonds(A, D, X, Y, G, H, blocking_direction,
+            compute_squeezers(A, D, X, Y, G, H, blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated);
 
@@ -957,16 +957,25 @@ namespace ATRG {
                               U_B, U_C, U_M);
 
 
-            forward_dimensions_and_alpha_copy = forward_dimensions_and_alpha;
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
+
             // contract the double bonds of A, X in forward and B, D in backward direction
-            squeeze_bonds(A, D, X, Y, G, H, blocking_direction,
+            compute_squeezers(A, D, X, Y, G, H, blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                           E_i, F_i);
 
-            squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha_copy);
+            // squeeze the bonds to make G and H
+            auto all_dimensions = squeeze(A, X, G, E_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
+            squeeze(Y, D, H, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
+
+            squeeze(Y_impure, D_impure, H_impure, F_i, blocking_direction, forward_indices, backward_indices, forward_dimensions_and_alpha);
+
+            // update the bond size
+            for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {
+                forward_dimensions_and_alpha[i] = all_dimensions[i];
+            }
 
 
             // rescale G and H
@@ -1033,6 +1042,8 @@ namespace ATRG {
                 }
             }
 
+            std::cout << "      result: " << trace(G_impure, H_impure) / trace(G, H) << std::endl;
+
             // reuse U_B, U_C, U_M as U_G, U_H, U_K
             // make new A, B, C, D from G and H
             contract_bond(G, H, A, B, C, D, old_blocking_direction,
@@ -1044,8 +1055,6 @@ namespace ATRG {
                                  error, residual_error, compute_residual_error,
                                  forward_indices, forward_dimensions_and_alpha,
                                  U_B, U_C, U_M);
-
-            std::cout << "      result: " << trace(G_impure, H_impure) / trace(G, H) << std::endl;
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;

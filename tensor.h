@@ -77,9 +77,7 @@ namespace ATRG {
         }
 
         friend std::ostream &operator<<(std::ostream &out, Tensor<T> &t) {
-            arma::Mat<T> flat;
-            flatten_single_index(0, flat);
-            out << flat.data();
+            out << t.data_copy();
             return out;
         }
 

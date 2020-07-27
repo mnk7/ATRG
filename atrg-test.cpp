@@ -336,7 +336,7 @@ int main(int argc, char **argv) {
     auto seed = r();
     std::mt19937_64 generator(static_cast<unsigned long>(seed));
 
-    ATRG::Tensor<double> tensor({12, 8, 10, 12, 8, 10});
+    /**ATRG::Tensor<double> tensor({12, 8, 10, 12, 8, 10});
     //random_Tensor(tensor, generator);
     //example_Tensor(tensor);
     ascending_Tensor(tensor, 0.1);
@@ -359,9 +359,9 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 1}, 6, true, ATRG::t_blocking);
+    //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 10}, 10, true, ATRG::t_blocking);
     auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {3, 3, 3}, 8, true, ATRG::t_blocking);
-
+**/
     /**
      * C++11 version:
      *
@@ -369,9 +369,48 @@ int main(int argc, char **argv) {
      * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
      */
 
-    std::cout << "      logZ:            " << logZ << std::endl;
+/**    std::cout << "      logZ:            " << logZ << std::endl;
     std::cout << "      relative error:  " << error_logZ << std::endl;
-    std::cout << "      residual error:  " << residual_error_logZ << std::endl;
+    std::cout << "      residual error:  " << residual_error_logZ << std::endl;**/
+
+
+    // Ising sweep:
+    std::ofstream sweep_file;
+    sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
+
+    for(double T = 0.1; T <= 4; T += 0.1) {
+        double beta = 1.0 / T;
+        double c = sqrt(cosh(beta));
+        double s = sqrt(sinh(beta));
+
+        arma::mat W(2, 2);
+        W(0, 0) = c;
+        W(1, 0) = c;
+        W(0, 1) = s;
+        W(1, 1) = -s;
+
+        double der[2] = {tanh(beta), 1.0 / tanh(beta)};
+
+        ATRG::Tensor<double> tensor({2, 2, 2, 2});	// local tensor
+        ATRG::Tensor<double> impurity({2, 2, 2, 2});	// two neigbouring tensors
+
+        long idx = 0;
+        for (uint yf = 0; yf <= 1; ++yf)
+        for (uint xf = 0; xf <= 1; ++xf)
+        for (uint yb = 0; yb <= 1; ++yb)
+        for (uint xb = 0; xb <= 1; ++xb) {
+            tensor.set(idx, W(0, xf) * W(0, xb) * W(0, yf) * W(0, yb) + W(1, xf) * W(1, xb) * W(1 ,yf) * W(1, yb));
+            impurity.set(idx, 0.5 * tensor(idx) * (der[xb] + der[xf] + der[yb] + der[yf]));
+            ++idx;
+        }
+
+        auto [E, E_logZ, residual_error_E] = ATRG::compute_single_impurity(tensor, impurity, {5, 5}, 20, true, ATRG::t_blocking);
+
+        sweep_file << T << " " << -E << std::endl;
+    }
+
+    sweep_file.flush();
+    sweep_file.close();
 
     //==============================================================================================
 

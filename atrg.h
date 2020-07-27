@@ -546,7 +546,7 @@ namespace ATRG {
      * and then their common bond index last
      */
     template<typename T>
-    T trace(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H) {
+    T trace(const ATRG::Tensor<T> &G, const ATRG::Tensor<T> &H) {
         T result = 0;
 
         for(decltype(G.get_size()) i = 0; i < G.get_size(); ++i) {
@@ -1060,8 +1060,7 @@ namespace ATRG {
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
 
-        T Z = trace(G, H);
-        T Z_impure = trace(G_impure, H_impure);
+        T result = trace(G_impure, H_impure) / trace(G, H);
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1069,7 +1068,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {Z_impure / Z, std::sqrt(error), std::sqrt(residual_error)};
+        return {result, std::sqrt(error), std::sqrt(residual_error)};
     }
 }
 

@@ -1,4 +1,4 @@
-CXXFLAGS += -fopenmp -std=c++17 -I./ -I/usr/include/eigen3/ -march=native
+CXXFLAGS += -fopenmp -std=c++17 -I./ -I/usr/include/eigen3/
 LIBS = -larmadillo -lopenblas -llapack
 
 atrg_test: atrg-test.o

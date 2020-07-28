@@ -67,7 +67,7 @@ namespace ATRG {
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = 1e-3) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
 
@@ -81,6 +81,58 @@ namespace ATRG {
         S.resize(D);
         U.resize(U.n_rows, S.n_elem);
         V.resize(V.n_rows, S.n_elem);
+
+
+        if(SV_uncertainty > 0) {
+            // sort singular vectors of degenerate singular values:
+            uint current_SV_position = 0;
+            bool start_swapping = false;
+            arma::Mat<T> degenerate_Us;
+            arma::Mat<T> degenerate_Vs;
+
+            for(uint i = 1; i < S.n_elem; ++i) {
+                auto difference = std::abs(1.0 - (S[i] / S[current_SV_position]));
+
+                if((difference > SV_uncertainty && i - 1 != current_SV_position)) {
+                    degenerate_Us = U.cols(current_SV_position, i - 1);
+                    degenerate_Vs = V.cols(current_SV_position, i - 1);
+
+                    current_SV_position = i;
+                    start_swapping = true;
+                } else if(i == S.n_elem - 1 && difference <= SV_uncertainty) {
+                    degenerate_Us = U.cols(current_SV_position, i);
+                    degenerate_Vs = V.cols(current_SV_position, i);
+
+                    start_swapping = true;
+                } else {
+                    current_SV_position = i;
+                }
+
+                if(start_swapping) {
+                    for(uint j = 0; j < degenerate_Us.n_cols - 1; ++j) {
+                        for(uint k = j + 1; k < degenerate_Us.n_cols; ++k) {
+                            // look at all vector entries of the vectors at j and at k
+                            for(uint l = 0; l < degenerate_Us.n_rows; ++l) {
+                                // the vector at k is larger -> swap
+                                if(degenerate_Us(j, l) < degenerate_Us(k, l)) {
+                                    degenerate_Us.swap_cols(j, k);
+                                    degenerate_Vs.swap_cols(j, k);
+                                    break;
+                                } else if(degenerate_Us(j, l) > degenerate_Us(k, l)) {
+                                    // the vector at k is smaller -> don't swap
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    U.cols(current_SV_position, current_SV_position + degenerate_Us.n_cols - 1) = degenerate_Us;
+                    V.cols(current_SV_position, current_SV_position + degenerate_Vs.n_cols - 1) = degenerate_Vs;
+
+                    start_swapping = false;
+                }
+            }
+        }
 
         // sum of all squared singular values - sum of kept squared singular vectors
         //      / sum of all squared singular vectors

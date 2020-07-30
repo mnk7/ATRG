@@ -30,6 +30,7 @@ namespace ATRG {
         T Frobnorm();
 
         T max();
+        T min();
         void zero();
         void rescale(const T s);
 
@@ -265,6 +266,15 @@ namespace ATRG {
     template <class T>
     inline T Tensor<T>::max() {
          return t.max();
+    }
+
+
+    /**
+     * returns the smalles element in the tensor
+     */
+    template <class T>
+    inline T Tensor<T>::min() {
+         return t.min();
     }
 
 

@@ -18,7 +18,7 @@ legend('HOTRG',
        'location', 'southeast');
 legend boxoff;
 title('Energy of the Ising model, 32x32 lattice');
-xlabel('\beta');
+xlabel('T');
 ylabel('E');
 
 print(fig, 'energy.pdf', '-dpdf', '-landscape', '-bestfit');

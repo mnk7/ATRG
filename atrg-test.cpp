@@ -379,6 +379,8 @@ int main(int argc, char **argv) {
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
     for(double T = 0.1; T <= 4; T += 0.1) {
+        std::cout << "computing at T = " << T << std::endl;
+
         double beta = 1.0 / T;
         double c = sqrt(cosh(beta));
         double s = sqrt(sinh(beta));
@@ -404,7 +406,8 @@ int main(int argc, char **argv) {
             ++idx;
         }
 
-        auto [E, E_logZ, residual_error_E] = ATRG::compute_single_impurity(tensor, impurity, {5, 5}, 20, true, ATRG::t_blocking);
+        auto [E, E_logZ, residual_error_E] = ATRG::compute_single_impurity(tensor, impurity, {5, 5}, 2, true, ATRG::t_blocking);
+        //auto [E, E_logZ, residual_error_E] = ATRG::compute_logZ(tensor, {5, 5}, 2, true, ATRG::t_blocking);
 
         sweep_file << T << " " << -E << std::endl;
     }

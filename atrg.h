@@ -338,7 +338,7 @@ namespace ATRG {
 
 
     template <typename T>
-    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
+    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
                        T &error, T &residual_error, const bool compute_residual_error,
                        const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                        std::vector<arma::Mat<T>> &E_i, std::vector<arma::Mat<T>> &F_i) {
@@ -409,7 +409,7 @@ namespace ATRG {
         std::vector<arma::Mat<T>> E_i;
         std::vector<arma::Mat<T>> F_i;
 
-        compute_squeezers(A, D, X, Y, G, H, blocking_direction, error, residual_error, compute_residual_error,
+        compute_squeezers(A, D, X, Y, blocking_direction, error, residual_error, compute_residual_error,
                       forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                       E_i, F_i);
 
@@ -557,6 +557,35 @@ namespace ATRG {
     }
 
 
+    /**
+     * compute the final result including the scalefactors that were removed earlier
+     */
+    template<typename T>
+    T result_with_scalefactors(const ATRG::Tensor<T> &G, const ATRG::Tensor<T> &H, const long double logScalefactors, const int volume,
+                               T &error, T &residual_error, bool print = true) {
+        auto last_result = trace(G, H);
+
+        // log(x + y) = log(x) + log(1 + y/x)
+        long double result = (logScalefactors + std::log(1.0 + last_result * std::exp(-logScalefactors))) / volume;
+
+        if(std::isnan(result) || std::isinf(result)) {
+            if(print) {
+                std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
+
+                auto error_last_step = std::log(std::abs(last_result)) * std::log(std::abs(last_result))
+                                    / (logScalefactors * logScalefactors);
+
+                error += error_last_step;
+                residual_error += error_last_step;
+            }
+
+            result = logScalefactors / volume;
+        }
+
+        return result;
+    }
+
+
 
     /**
      * compute the log value of the partition sum for the given tensor and a lattice of given dimensions
@@ -697,9 +726,9 @@ namespace ATRG {
             remaining_volume /= 2;
 
             // rescale G and H
-            auto G_scale = std::abs(G.max());
+            auto G_scale = std::max(std::abs(G.max()), std::abs(G.min()));
             G.rescale(1.0 / G_scale);
-            auto H_scale = std::abs(H.max());
+            auto H_scale = std::max(std::abs(H.max()), std::abs(H.min()));
             H.rescale(1.0 / H_scale);
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
@@ -759,6 +788,8 @@ namespace ATRG {
                 }
             }
 
+            std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
+
             // make new A, B, C, D from G and H
             contract_bond(G, H, A, B, C, D, old_blocking_direction,
                           error, residual_error, compute_residual_error,
@@ -768,21 +799,7 @@ namespace ATRG {
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
 
-        auto lastZ = trace(G, H);
-
-        // log(x + y) = log(x) + log(1 + y/x)
-        long double logZ = (logScalefactors + std::log(1.0 + lastZ * std::exp(-logScalefactors))) / volume;
-
-        if(std::isnan(logZ) || std::isinf(logZ)) {
-            std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
-            logZ = logScalefactors / volume;
-
-            auto error_last_step = std::log(std::abs(lastZ)) * std::log(std::abs(lastZ))
-                                    / (logScalefactors * logScalefactors);
-
-            error += error_last_step;
-            residual_error += error_last_step;
-        }
+        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error, residual_error);
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -830,6 +847,9 @@ namespace ATRG {
          */
         T error = 0;
         T residual_error = 0;
+
+        T Scalefactors = 1;
+        T last_result = 0;
 
         uint physical_dimension = tensor.get_order() / 2;
 
@@ -956,12 +976,19 @@ namespace ATRG {
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M);
 
+            std::cout << "U_B:" << std::endl << U_B << std::endl;
+            std::cout << "U_C:" << std::endl << U_C << std::endl;
+            std::cout << "U_M:" << std::endl << U_M << std::endl;
+            std::cout << "X:" << std::endl << X << std::endl;
+            std::cout << "Y:" << std::endl << Y << std::endl;
+            std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;
+
 
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
 
             // contract the double bonds of A, X in forward and B, D in backward direction
-            compute_squeezers(A, D, X, Y, G, H, blocking_direction,
+            compute_squeezers(A, D, X, Y, blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                           E_i, F_i);
@@ -977,15 +1004,28 @@ namespace ATRG {
                 forward_dimensions_and_alpha[i] = all_dimensions[i];
             }
 
+            std::cout << "E_0:" << std::endl << E_i[0] << std::endl;
+            std::cout << "F_0:" << std::endl << F_i[0] << std::endl;
+            std::cout << "G:" << std::endl << G << std::endl;
+            std::cout << "H:" << std::endl << H << std::endl;
+            std::cout << "H_impure:" << std::endl << H_impure << std::endl;
+
 
             // rescale G and H
-            auto G_scale = std::abs(G.max());
+            auto G_scale = std::max(std::abs(G.max()), std::abs(G.min()));
             G.rescale(1.0 / G_scale);
-            auto H_scale = std::abs(H.max());
+            auto H_scale = std::max(std::abs(H.max()), std::abs(H.min()));
             H.rescale(1.0 / H_scale);
 
             G_impure = G;
-            H_impure.rescale(1.0 / H_scale);
+            auto H_scale_impure = std::max(std::abs(H_impure.max()), std::abs(H_impure.min()));
+            H_impure.rescale(1.0 / H_scale_impure);
+
+            // rest gets cancelled
+            Scalefactors *= H_scale_impure / H_scale;
+
+            std::cout << G_scale << " " << H_scale << std::endl;
+            std::cout << H_scale_impure << std::endl;
 
             //=============================================================================================
 
@@ -1042,7 +1082,8 @@ namespace ATRG {
                 }
             }
 
-            std::cout << "      result: " << trace(G_impure, H_impure) / trace(G, H) << std::endl;
+            last_result = trace(G_impure, H_impure) / trace(G, H);
+            std::cout << "      result: " << Scalefactors * last_result << std::endl;
 
             // reuse U_B, U_C, U_M as U_G, U_H, U_K
             // make new A, B, C, D from G and H
@@ -1059,8 +1100,21 @@ namespace ATRG {
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
+        auto result = trace(G_impure, H_impure) / trace(G, H);
 
-        T result = trace(G_impure, H_impure) / trace(G, H);
+        // numerical unreliabilites can befall single steps -> ignore them
+        if(std::abs(1 - result / last_result) > 1e-2 || std::isnan(result) || std::isinf(result)) {
+            std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
+
+            result = Scalefactors;
+
+            // add the error (Scalefactors / (Scalefactors * last_result))^2
+            auto error_last_step = 1.0 / (last_result * last_result);
+            error += error_last_step;
+            residual_error += error_last_step;
+        } else {
+            result *= Scalefactors;
+        }
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(

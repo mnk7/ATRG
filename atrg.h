@@ -553,6 +553,11 @@ namespace ATRG {
             result += G(i) * H(i);
         }
 
+        // cut-off for noise:
+        if(std::abs(result) < 1e-14) {
+            result = 0;
+        }
+
         return result;
     }
 
@@ -818,7 +823,7 @@ namespace ATRG {
      * returns log(Z_impure) and an error estimate
      */
     template <typename T>
-    std::tuple<T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
+    std::tuple<T, T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
                                                 const std::vector<uint> lattice_dimensions, const uint D_truncated,
                                                 const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z) with one impurity:" << std::endl;
@@ -839,6 +844,11 @@ namespace ATRG {
             }
         }
 
+        auto lattice_sizes(lattice_dimensions);
+        std::for_each(lattice_sizes.begin(), lattice_sizes.end(), [](auto &element) {element = std::pow(2, element);});
+        auto volume = std::accumulate(lattice_sizes.begin(), lattice_sizes.end(), 1, std::multiplies<T>());
+        auto remaining_volume = volume;
+
         /*
          * we compute this errors with error propagation:
          * if we multiply to quantities we compute:
@@ -850,6 +860,8 @@ namespace ATRG {
 
         T Scalefactors = 1;
         T last_result = 0;
+
+        T logScalefactors = 0;
 
         uint physical_dimension = tensor.get_order() / 2;
 
@@ -1010,12 +1022,15 @@ namespace ATRG {
             std::cout << "H:" << std::endl << H << std::endl;
             std::cout << "H_impure:" << std::endl << H_impure << std::endl;
 
+            remaining_volume /= 2;
 
             // rescale G and H
             auto G_scale = std::max(std::abs(G.max()), std::abs(G.min()));
             G.rescale(1.0 / G_scale);
             auto H_scale = std::max(std::abs(H.max()), std::abs(H.min()));
             H.rescale(1.0 / H_scale);
+
+            logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
 
             G_impure = G;
             auto H_scale_impure = std::max(std::abs(H_impure.max()), std::abs(H_impure.min()));
@@ -1026,6 +1041,7 @@ namespace ATRG {
 
             std::cout << G_scale << " " << H_scale << std::endl;
             std::cout << H_scale_impure << std::endl;
+            std::cout << "Scalefactor: " << Scalefactors << std::endl;
 
             //=============================================================================================
 
@@ -1100,10 +1116,19 @@ namespace ATRG {
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
-        auto result = trace(G_impure, H_impure) / trace(G, H);
+        auto tr_impure = trace(G_impure, H_impure);
+        auto tr = trace(G, H);
+        auto result = tr_impure / tr;
+
+        if(tr_impure == 0 && tr == 0) {
+            result = 1;
+        }
+
+        std::cout << "Result: " << result << std::endl;
 
         // numerical unreliabilites can befall single steps -> ignore them
-        if(std::abs(1 - result / last_result) > 1e-2 || std::isnan(result) || std::isinf(result)) {
+        // also, the traces will both be almost 1 at one point because of the rescaling and blocking with pure tensors
+        if((volume >= 16 && std::abs(1.0 - result / last_result) > 1e-2) || std::isnan(result) || std::isinf(result)) {
             std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
 
             result = Scalefactors;
@@ -1116,13 +1141,17 @@ namespace ATRG {
             result *= Scalefactors;
         }
 
+
+        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error, residual_error);
+
+
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::high_resolution_clock::now() - starttime)
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {result, std::sqrt(error), std::sqrt(residual_error)};
+        return {result, std::sqrt(error), std::sqrt(residual_error), logZ};
     }
 }
 

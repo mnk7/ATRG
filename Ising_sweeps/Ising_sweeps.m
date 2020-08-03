@@ -2,7 +2,7 @@
 clear all;
 clc;
 
-inputHOTRG = dlmread('HOTRG_Ising_sweep.dat', '\t', 0, 0);
+inputHOTRG = dlmread('HOTRG_Ising_sweep_L2.dat', '\t', 0, 0);
 inputATRG = dlmread('Ising_sweep.dat', ' ', 0, 0);
 
 fig = figure;

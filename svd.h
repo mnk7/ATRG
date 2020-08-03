@@ -82,6 +82,10 @@ namespace ATRG {
         U.resize(U.n_rows, S.n_elem);
         V.resize(V.n_rows, S.n_elem);
 
+        U.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
+        V.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
+        S.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
+
 
         if(SV_uncertainty >= 0) {
             // sort singular vectors of degenerate singular values:

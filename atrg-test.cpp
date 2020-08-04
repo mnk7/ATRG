@@ -63,6 +63,36 @@ void ascending_Tensor(TensorType &tensor, double start) {
 
 
 
+template <class TensorType>
+void Ising_Tensor(TensorType &tensor, TensorType &impurity, double T) {
+    double beta = 1.0 / T;
+    double c = sqrt(cosh(beta));
+    double s = sqrt(sinh(beta));
+
+    arma::mat W(2, 2);
+    W(0, 0) = c;
+    W(1, 0) = c;
+    W(0, 1) = s;
+    W(1, 1) = -s;
+
+    double der[2] = {tanh(beta), 1.0 / tanh(beta)};
+
+    tensor.reshape({2, 2, 2, 2});	// local tensor
+    impurity.reshape({2, 2, 2, 2});	// two neigbouring tensors
+
+    long idx = 0;
+    for (uint yf = 0; yf <= 1; ++yf)
+    for (uint xf = 0; xf <= 1; ++xf)
+    for (uint yb = 0; yb <= 1; ++yb)
+    for (uint xb = 0; xb <= 1; ++xb) {
+        tensor.set(idx, W(0, xf) * W(0, xb) * W(0, yf) * W(0, yb) + W(1, xf) * W(1, xb) * W(1 ,yf) * W(1, yb));
+        impurity.set(idx, 0.5 * tensor(idx) * (der[xb] + der[xf] + der[yb] + der[yf]));
+        ++idx;
+    }
+}
+
+
+
 /**
  * Compare different SVD methods
  * ATRG::svd:    second best memory footprint (~2x std variants), as fast as dc variants; SEEMS to give worse results!
@@ -378,38 +408,29 @@ int main(int argc, char **argv) {
     std::ofstream sweep_file;
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
-    for(double T = 0.1; T <= 4.05; T += 0.05) {
+    uint D = 3;
+    std::vector<uint> blockings = {1, 1};
+    double delta = 9e-3;
+
+    for(double T = 0.1; T <= 4.01; T +=(T < 2 || T > 2.6) ? 0.1 : 0.02) {
         std::cout << "computing at T = " << T << std::endl;
 
-        double beta = 1.0 / T;
-        double c = sqrt(cosh(beta));
-        double s = sqrt(sinh(beta));
+        ATRG::Tensor<double> tensor;
+        ATRG::Tensor<double> impurity;
 
-        arma::mat W(2, 2);
-        W(0, 0) = c;
-        W(1, 0) = c;
-        W(0, 1) = s;
-        W(1, 1) = -s;
+        Ising_Tensor(tensor, impurity, T);
+        auto [E, error_E, residual_error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, blockings, D, true, ATRG::t_blocking);
 
-        double der[2] = {tanh(beta), 1.0 / tanh(beta)};
+        Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T + delta));
+        auto [logZ_p, error_logZ_p, residual_error_p] = ATRG::compute_logZ(tensor, blockings, D, true, ATRG::t_blocking);
 
-        ATRG::Tensor<double> tensor({2, 2, 2, 2});	// local tensor
-        ATRG::Tensor<double> impurity({2, 2, 2, 2});	// two neigbouring tensors
+        Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T - delta));
+        auto [logZ_m, error_logZ_m, residual_error_m] = ATRG::compute_logZ(tensor, blockings, D, true, ATRG::t_blocking);
 
-        long idx = 0;
-        for (uint yf = 0; yf <= 1; ++yf)
-        for (uint xf = 0; xf <= 1; ++xf)
-        for (uint yb = 0; yb <= 1; ++yb)
-        for (uint xb = 0; xb <= 1; ++xb) {
-            tensor.set(idx, W(0, xf) * W(0, xb) * W(0, yf) * W(0, yb) + W(1, xf) * W(1, xb) * W(1 ,yf) * W(1, yb));
-            impurity.set(idx, 0.5 * tensor(idx) * (der[xb] + der[xf] + der[yb] + der[yf]));
-            ++idx;
-        }
+        auto E_fd = (logZ_p - logZ_m) / (2 * delta);
+        auto susz_fd = 1.0 / (T * T) * (logZ_m - 2.0 * logZ + logZ_p) / (delta * delta);
 
-        auto [E, error_E, residual_error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, {1, 1}, 2, true, ATRG::t_blocking);
-        //auto [E, E_logZ, residual_error_E] = ATRG::compute_logZ(tensor, {5, 5}, 2, true, ATRG::t_blocking);
-
-        sweep_file << T << " " << -E << std::endl;
+        sweep_file << T << " " << -E << " " << -E_fd << " " << susz_fd << std::endl;
     }
 
     sweep_file.flush();

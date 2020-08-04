@@ -67,7 +67,7 @@ namespace ATRG {
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = -1) {
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = -1e-3) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
 

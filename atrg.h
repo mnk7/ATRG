@@ -556,11 +556,6 @@ namespace ATRG {
             result += G(i) * H(i);
         }
 
-        // cut-off for noise:
-        if(std::abs(result) < 1e-14) {
-            result = 0;
-        }
-
         return result;
     }
 
@@ -573,8 +568,9 @@ namespace ATRG {
                                T &error, T &residual_error, bool print = true) {
         auto last_result = trace(G, H);
 
-        // log(x + y) = log(x) + log(1 + y/x)
-        long double result = (logScalefactors + std::log(1.0 + last_result * std::exp(-logScalefactors))) / volume;
+        long double result = (logScalefactors + std::log(last_result)) / volume;
+
+        std::cout << logScalefactors << " " << std::log(last_result) << std::endl;
 
         if(std::isnan(result) || std::isinf(result)) {
             if(print) {
@@ -991,12 +987,12 @@ namespace ATRG {
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M);
 
-            std::cout << "U_B:" << std::endl << U_B << std::endl;
+            /**std::cout << "U_B:" << std::endl << U_B << std::endl;
             std::cout << "U_C:" << std::endl << U_C << std::endl;
             std::cout << "U_M:" << std::endl << U_M << std::endl;
             std::cout << "X:" << std::endl << X << std::endl;
             std::cout << "Y:" << std::endl << Y << std::endl;
-            std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;
+            std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;**/
 
 
             std::vector<arma::Mat<T>> E_i;
@@ -1019,11 +1015,11 @@ namespace ATRG {
                 forward_dimensions_and_alpha[i] = all_dimensions[i];
             }
 
-            std::cout << "E_0:" << std::endl << E_i[0] << std::endl;
+            /**std::cout << "E_0:" << std::endl << E_i[0] << std::endl;
             std::cout << "F_0:" << std::endl << F_i[0] << std::endl;
             std::cout << "G:" << std::endl << G << std::endl;
             std::cout << "H:" << std::endl << H << std::endl;
-            std::cout << "H_impure:" << std::endl << H_impure << std::endl;
+            std::cout << "H_impure:" << std::endl << H_impure << std::endl;**/
 
             remaining_volume /= 2;
 
@@ -1123,7 +1119,7 @@ namespace ATRG {
         auto tr = trace(G, H);
         auto result = tr_impure / tr;
 
-        if(tr_impure == 0 && tr == 0) {
+        if(tr_impure < 1e-14 && tr < 1e-14) {
             result = 1;
         }
 

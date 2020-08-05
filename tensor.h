@@ -33,6 +33,7 @@ namespace ATRG {
         T min();
         void zero();
         void rescale(const T s);
+        void cut(const T epsilon);
 
         uint flatindex(const std::vector<uint> index, std::vector<uint> &base);
         uint flatindex(const std::vector<uint> index);
@@ -245,7 +246,7 @@ namespace ATRG {
     inline T Tensor<T>::Frobnorm2() {
         T F = 0;
 
-        std::for_each(t.begin(), t.end(), [&F](T &element) {F += std::abs(element) * std::abs(element);});
+        std::for_each(std::begin(t), std::end(t), [&F](T &element) {F += std::abs(element) * std::abs(element);});
 
         return F;
     }
@@ -293,6 +294,15 @@ namespace ATRG {
     template <class T>
     inline void Tensor<T>::rescale(const T s) {
         t *= s;
+    }
+
+
+    /**
+     * cut off very small values
+     */
+    template <class T>
+    inline void Tensor<T>::cut(const T epsilon) {
+        std::for_each(std::begin(t), std::end(t), [&epsilon](auto &element) {if(std::abs(element) < epsilon){element = 0;}});
     }
 
 

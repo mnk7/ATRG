@@ -33,6 +33,7 @@ namespace ATRG {
         T min();
         void zero();
         void rescale(const T s);
+        void cut(const T epsilon);
 
         uint flatindex(const std::vector<uint> index, std::vector<uint> &base);
         uint flatindex(const std::vector<uint> index);
@@ -271,6 +272,15 @@ namespace ATRG {
     template <class T>
     inline void SpTensor<T>::rescale(const T s) {
         t *= s;
+    }
+
+
+    /**
+     * cut off very small values
+     */
+    template <class T>
+    inline void SpTensor<T>::cut(const T epsilon) {
+        t.for_each([&epsilon](auto &element) {if(std::abs(element) < epsilon){element = 0;}});
     }
 
 

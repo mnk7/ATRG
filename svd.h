@@ -67,7 +67,7 @@ namespace ATRG {
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = -1e-3) {
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = 1e-3) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
 
@@ -84,7 +84,7 @@ namespace ATRG {
 
         U.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
         V.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
-        S.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
+        S.for_each([&S](auto &element) {if(std::abs(element / S(0)) < 1e-14){element = 0;}});
 
 
         if(SV_uncertainty >= 0) {

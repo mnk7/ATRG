@@ -32,6 +32,28 @@ print(fig, 'energy.pdf', '-dpdf', '-landscape', '-bestfit');
 
 fig = figure;
 hold on;
+semilogy(inputATRG(:, 1), inputATRG(:, 5), '+', "linewidth", 1.5);
+semilogy(1.0 ./ (1.0 ./ inputATRG(:, 1) .- 5e-3), inputATRG(:, 6), '+', "linewidth", 1.5);
+semilogy(1.0 ./ (1.0 ./ inputATRG(:, 1) .+ 5e-3), inputATRG(:, 7), '+', "linewidth", 1.5);
+grid off;
+hold off;
+set(gca, "linewidth", 1.5, "fontsize", 13)
+axis tight;
+%axis([0 4 -2.02 -0.4]);
+legend('log(Z)',
+       'log(Z)_m', 
+       'log(Z)_p',
+       'location', 'northeast');
+legend boxoff;
+title('log(Z) of the Ising model, 2D lattice');
+xlabel('T');
+ylabel('log(Z)');
+
+print(fig, 'logZ.pdf', '-dpdf', '-landscape', '-bestfit');
+
+
+fig = figure;
+hold on;
 plot(inputHOTRG(:, 1), inputHOTRG(:, 3), ':+', "linewidth", 1.5);
 plot(inputATRG(:, 1), inputATRG(:, 4), ':+', "linewidth", 1.5);
 grid off;

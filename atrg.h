@@ -81,10 +81,16 @@ namespace ATRG {
         B.flatten(not_blocked_indices, {blocking_direction, B.get_order() - 1}, B_flat);
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
+        // use D*D for everything higher than 2D
+        auto B_C_truncation = D_truncated;
+        if(forward_dimensions_and_alpha.size() > 3) {
+            B_C_truncation *= D_truncated;
+        }
+
 
         arma::Mat<T> V_B;
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, V_B, S_B, D_truncated);
+        error += svd(B_flat, U_B, V_B, S_B, B_C_truncation);
 
         if(compute_residual_error) {
             auto residual_error_b = residual_svd(B_flat, U_B, V_B, S_B);
@@ -103,7 +109,7 @@ namespace ATRG {
 
         arma::Mat<T> V_C;
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, V_C, S_C, D_truncated);
+        error += svd(C_flat, U_C, V_C, S_C, B_C_truncation);
 
         if(compute_residual_error) {
             auto residual_error_c = residual_svd(C_flat, U_C, V_C, S_C);
@@ -141,6 +147,12 @@ namespace ATRG {
 
         B_flat = U_M;
         C_flat = U_times_S(V_M, S);
+
+#ifdef DEBUG
+        std::cout << "U_B:" << std::endl << U_B << std::endl;
+        std::cout << "U_C:" << std::endl << U_C << std::endl;
+        std::cout << "U_M:" << std::endl << U_M << std::endl;
+#endif
 
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
                            error, residual_error, compute_residual_error,
@@ -400,6 +412,11 @@ namespace ATRG {
             // {index_A, index_X}, new index
             E_i[i] = U_P * U_times_S(U_N, S);
             F_i[i] = U_Q * U_times_S(V_N, S);
+
+#ifdef DEBUG
+            std::cout << "E_" << i << ":" << std::endl << E_i[i] << std::endl;
+            std::cout << "F_" << i << ":" << std::endl << F_i[i] << std::endl;
+#endif
         }
     }
 
@@ -570,7 +587,10 @@ namespace ATRG {
 
         long double result = (logScalefactors + std::log(last_result)) / volume;
 
-        std::cout << logScalefactors << " " << std::log(last_result) << std::endl;
+#ifdef DEBUG
+        std::cout << "logScalefactors: " << logScalefactors << std::endl;
+        std::cout << "log(last_result): " << std::log(last_result) << std::endl;
+#endif
 
         if(std::isnan(result) || std::isinf(result)) {
             if(print) {
@@ -715,6 +735,8 @@ namespace ATRG {
         bool finished = false;
 
         while(!finished) {
+            remaining_volume /= 2;
+
             //=============================================================================================
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
@@ -722,12 +744,25 @@ namespace ATRG {
                        error, residual_error, compute_residual_error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated);
 
+            std::cout << "X:" << std::endl << X << std::endl;
+            std::cout << "Y:" << std::endl << Y << std::endl;
+
+            auto Y_scale = std::max(std::abs(Y.max()), std::abs(Y.min()));
+            Y.rescale(1.0 / Y_scale);
+
+            logScalefactors += remaining_volume * std::log(Y_scale);
+
+#ifdef DEBUG
+            std::cout << "Y_scale: " << Y_scale << std::endl;
+#endif
+
             // contract the double bonds of A, X in forward and B, D in backward direction
             compute_squeezers(A, D, X, Y, G, H, blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated);
 
-            remaining_volume /= 2;
+            std::cout << "G:" << std::endl << G << std::endl;
+            std::cout << "H:" << std::endl << H << std::endl;
 
             // rescale G and H
             auto G_scale = std::max(std::abs(G.max()), std::abs(G.min()));
@@ -736,6 +771,12 @@ namespace ATRG {
             H.rescale(1.0 / H_scale);
 
             logScalefactors += remaining_volume * (std::log(G_scale) + std::log(H_scale));
+
+#ifdef DEBUG
+            std::cout << "G_scale: " << G_scale << std::endl;
+            std::cout << "H_scale: " << H_scale << std::endl;
+#endif
+
 
             //=============================================================================================
 
@@ -857,10 +898,10 @@ namespace ATRG {
         T error = 0;
         T residual_error = 0;
 
-        T Scalefactors = 1;
-        T last_result = 0;
+        long double Scalefactors = 1;
+        long double last_result = 0;
 
-        T logScalefactors = 0;
+        long double logScalefactors = 0;
 
         uint physical_dimension = tensor.get_order() / 2;
 
@@ -966,6 +1007,8 @@ namespace ATRG {
         bool finished = false;
 
         while(!finished) {
+            remaining_volume /= 2;
+
             // the C and D come from the second tensor, in this case a pure tensor
             C_impure = C;
             D_impure = D;
@@ -987,12 +1030,24 @@ namespace ATRG {
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M);
 
-            /**std::cout << "U_B:" << std::endl << U_B << std::endl;
-            std::cout << "U_C:" << std::endl << U_C << std::endl;
-            std::cout << "U_M:" << std::endl << U_M << std::endl;
+            auto Y_scale = std::max(std::abs(Y.max()), std::abs(Y.min()));
+            Y.rescale(1.0 / Y_scale);
+
+            logScalefactors += remaining_volume * std::log(Y_scale);
+
+            auto Y_scale_impure = std::max(std::abs(Y_impure.max()), std::abs(Y_impure.min()));
+            Y_impure.rescale(1.0 / Y_scale_impure);
+
+            Scalefactors *= Y_scale_impure / Y_scale;
+
+#ifdef DEBUG
+            std::cout << "Y_scale: " << Y_scale << std::endl;
+            std::cout << "Y_scale_impure: " << Y_scale_impure << std::endl;
+#endif
+
             std::cout << "X:" << std::endl << X << std::endl;
             std::cout << "Y:" << std::endl << Y << std::endl;
-            std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;**/
+            std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;
 
 
             std::vector<arma::Mat<T>> E_i;
@@ -1015,13 +1070,9 @@ namespace ATRG {
                 forward_dimensions_and_alpha[i] = all_dimensions[i];
             }
 
-            /**std::cout << "E_0:" << std::endl << E_i[0] << std::endl;
-            std::cout << "F_0:" << std::endl << F_i[0] << std::endl;
             std::cout << "G:" << std::endl << G << std::endl;
             std::cout << "H:" << std::endl << H << std::endl;
-            std::cout << "H_impure:" << std::endl << H_impure << std::endl;**/
-
-            remaining_volume /= 2;
+            std::cout << "H_impure:" << std::endl << H_impure << std::endl;
 
             // rescale G and H
             auto G_scale = std::max(std::abs(G.max()), std::abs(G.min()));
@@ -1038,9 +1089,12 @@ namespace ATRG {
             // rest gets cancelled
             Scalefactors *= H_scale_impure / H_scale;
 
-            std::cout << G_scale << " " << H_scale << std::endl;
-            std::cout << H_scale_impure << std::endl;
+#ifdef DEBUG
+            std::cout << "G_scale: " << G_scale << std::endl;
+            std::cout << "H_scale: " << H_scale << std::endl;
+            std::cout << "H_scale_impure: " << H_scale_impure << std::endl;
             std::cout << "Scalefactor: " << Scalefactors << std::endl;
+#endif
 
             //=============================================================================================
 
@@ -1119,15 +1173,9 @@ namespace ATRG {
         auto tr = trace(G, H);
         auto result = tr_impure / tr;
 
-        if(tr_impure < 1e-14 && tr < 1e-14) {
-            result = 1;
-        }
-
-        std::cout << "Result: " << result << std::endl;
-
         // numerical unreliabilites can befall single steps -> ignore them
         // also, the traces will both be almost 1 at one point because of the rescaling and blocking with pure tensors
-        if((volume >= 16 && std::abs(1.0 - result / last_result) > 1e-2) || std::isnan(result) || std::isinf(result)) {
+        if(std::isnan(result) || std::isinf(result)) {
             std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
 
             result = Scalefactors;

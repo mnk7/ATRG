@@ -67,7 +67,8 @@ namespace ATRG {
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const double SV_uncertainty = 1e-3) {
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
+                 const double SV_uncertainty = 1e-3, const double cutoff = 1e-14) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
 
@@ -78,13 +79,25 @@ namespace ATRG {
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);
 
-        S.resize(D);
-        U.resize(U.n_rows, S.n_elem);
-        V.resize(V.n_rows, S.n_elem);
+        if(D <= S.n_elem) {
+            S.resize(D);
+            U.resize(U.n_rows, S.n_elem);
+            V.resize(V.n_rows, S.n_elem);
+        } else {
+            std::cerr << "  in svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
+        }
 
-        U.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
-        V.for_each([](auto &element) {if(std::abs(element) < 1e-14){element = 0;}});
-        S.for_each([&S](auto &element) {if(std::abs(element / S(0)) < 1e-14){element = 0;}});
+        U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+        V.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+        S.for_each([&S, &cutoff](auto &element) {if(std::abs(element / S(0)) < cutoff){element = 0;}});
+
+
+#ifdef DEBUG
+        double diff_to_unitary_U = arma::norm(arma::eye(U.n_cols, U.n_cols) - U.t() * U, "fro");
+        double diff_to_unitary_V = arma::norm(arma::eye(V.n_cols, V.n_cols) - V.t() * V, "fro");
+        std::cout << "difference to unitarity U: " << diff_to_unitary_U << std::endl
+                  << "                        V: " << diff_to_unitary_V << std::endl;
+#endif
 
 
         if(SV_uncertainty >= 0) {

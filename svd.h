@@ -68,7 +68,7 @@ namespace ATRG {
      */
     template <typename T>
     inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
-                 const double SV_uncertainty = 1e-3, const double cutoff = 1e-14) {
+                 const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
 
@@ -78,18 +78,6 @@ namespace ATRG {
 
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);
-
-        if(D <= S.n_elem) {
-            S.resize(D);
-            U.resize(U.n_rows, S.n_elem);
-            V.resize(V.n_rows, S.n_elem);
-        } else {
-            std::cerr << "  in svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
-        }
-
-        U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
-        V.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
-        S.for_each([&S, &cutoff](auto &element) {if(std::abs(element / S(0)) < cutoff){element = 0;}});
 
 
 #ifdef DEBUG
@@ -110,33 +98,53 @@ namespace ATRG {
             for(uint i = 1; i < S.n_elem; ++i) {
                 auto difference = std::abs(1.0 - (S[i] / S[current_SV_position]));
 
-                if((difference > SV_uncertainty && i - 1 != current_SV_position)) {
-                    degenerate_Us = U.cols(current_SV_position, i - 1);
-                    degenerate_Vs = V.cols(current_SV_position, i - 1);
+                if(difference <= SV_uncertainty) {
+                    // last SV?
+                    if(i == S.n_elem - 1) {
+                        degenerate_Us = U.cols(current_SV_position, i);
+                        degenerate_Vs = V.cols(current_SV_position, i);
 
-                    current_SV_position = i;
-                    start_swapping = true;
-                } else if(i == S.n_elem - 1 && difference <= SV_uncertainty) {
-                    degenerate_Us = U.cols(current_SV_position, i);
-                    degenerate_Vs = V.cols(current_SV_position, i);
-
-                    start_swapping = true;
+                        start_swapping = true;
+                    } else {
+                        continue;
+                    }
                 } else {
-                    current_SV_position = i;
+                    // were the last SV degenerated?
+                    if(i - 1 != current_SV_position) {
+                        degenerate_Us = U.cols(current_SV_position, i - 1);
+                        degenerate_Vs = V.cols(current_SV_position, i - 1);
+
+                        start_swapping = true;
+                    } else if(i >= D) {
+                        break;
+                    } else {
+                        current_SV_position = i;
+                    }
                 }
 
+
                 if(start_swapping) {
+#ifdef DEBUG
+                    std::cout << "S: " << std::endl << S << std::endl;
+                    std::cout << "swap " << degenerate_Us.n_cols << " SV between " << current_SV_position << " and " << current_SV_position + degenerate_Us.n_cols - 1 << std::endl;
+#endif
+
                     for(uint j = 0; j < degenerate_Us.n_cols - 1; ++j) {
+                        arma::uvec order_j = arma::stable_sort_index(arma::abs(degenerate_Us.col(j)), "descend");
+
                         for(uint k = j + 1; k < degenerate_Us.n_cols; ++k) {
-                            // look at all vector entries of the vectors at j and at k
-                            for(uint l = 0; l < degenerate_Us.n_rows; ++l) {
-                                // the vector at k is larger -> swap
-                                if(degenerate_Us(j, l) < degenerate_Us(k, l)) {
+                            // sort by the position of the largest entry in the vector:
+                            arma::uvec order_k = arma::stable_sort_index(arma::abs(degenerate_Us.col(k)), "descend");
+
+                            for(uint l = 0; l < order_j.n_elem; ++l) {
+                                // the extremum of k is at a lower index -> swap
+                                if(order_j(l) > order_k(l)) {
                                     degenerate_Us.swap_cols(j, k);
                                     degenerate_Vs.swap_cols(j, k);
+                                    order_j = order_k;
                                     break;
-                                } else if(degenerate_Us(j, l) > degenerate_Us(k, l)) {
-                                    // the vector at k is smaller -> don't swap
+                                } else if(order_j(l) < order_k(l)) {
+                                    // the extremum of k is further back -> don't swap
                                     break;
                                 }
                             }
@@ -147,8 +155,24 @@ namespace ATRG {
                     V.cols(current_SV_position, current_SV_position + degenerate_Vs.n_cols - 1) = degenerate_Vs;
 
                     start_swapping = false;
+                    current_SV_position = i;
                 }
             }
+        }
+
+
+        if(D <= S.n_elem) {
+            S.resize(D);
+            U.resize(U.n_rows, S.n_elem);
+            V.resize(V.n_rows, S.n_elem);
+        } else {
+            std::cerr << "  in svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
+        }
+
+        if(cutoff > 0) {
+            U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+            V.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+            S.for_each([&S, &cutoff](auto &element) {if(std::abs(element / S(0)) < cutoff){element = 0;}});
         }
 
         // sum of all squared singular values - sum of kept squared singular vectors

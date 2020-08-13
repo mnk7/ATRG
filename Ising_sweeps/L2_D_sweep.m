@@ -47,8 +47,8 @@ semilogy(1.0 ./ (1.0 ./ D16(:, 1) .+ 5e-3), D16(:, 7), '+', "linewidth", 1.5);
 grid off;
 hold off;
 set(gca, "linewidth", 1.5, "fontsize", 13)
-%axis tight;
-axis([0.1 4 10^-1 20]);
+axis tight;
+%axis([0.1 4 10^-1 20]);
 legend(plots, 
        'log(Z) D2',
        'log(Z) D3',

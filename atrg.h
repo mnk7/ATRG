@@ -414,6 +414,9 @@ namespace ATRG {
             F_i[i] = U_Q * U_times_S(V_N, S);
 
 #ifdef DEBUG
+            std::cout << "U_P:" << std::endl << U_P << std::endl;
+            std::cout << "U_Q:" << std::endl << U_P << std::endl;
+            std::cout << "U_N:" << std::endl << U_N << std::endl;
             std::cout << "E_" << i << ":" << std::endl << E_i[i] << std::endl;
             std::cout << "F_" << i << ":" << std::endl << F_i[i] << std::endl;
 #endif
@@ -588,8 +591,8 @@ namespace ATRG {
         long double result = (logScalefactors + std::log(last_result)) / volume;
 
 #ifdef DEBUG
-        std::cout << "logScalefactors: " << logScalefactors << std::endl;
-        std::cout << "log(last_result): " << std::log(last_result) << std::endl;
+        std::cout << "logScalefactors: " << logScalefactors / volume << std::endl;
+        std::cout << "log(last_result): " << std::log(last_result) / volume << std::endl;
 #endif
 
         if(std::isnan(result) || std::isinf(result)) {
@@ -604,6 +607,7 @@ namespace ATRG {
             }
 
             result = logScalefactors / volume;
+            result = 20;
         }
 
         return result;
@@ -843,7 +847,6 @@ namespace ATRG {
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
-
         auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error, residual_error);
 
 
@@ -1050,10 +1053,9 @@ namespace ATRG {
             std::cout << "Y_impure:" << std::endl << Y_impure << std::endl;
 
 
+            // contract the double bonds of A, X in forward and B, D in backward direction
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
-
-            // contract the double bonds of A, X in forward and B, D in backward direction
             compute_squeezers(A, D, X, Y, blocking_direction,
                           error, residual_error, compute_residual_error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,

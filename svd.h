@@ -12,12 +12,27 @@ namespace ATRG {
      */
     template <typename T>
     inline void stabilize_SV(arma::Col<T> &S, arma::Mat<T> &U, arma::Mat<T> &V, const uint D,
-                             const double SV_uncertainty, const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0)) {
+                             const double SV_uncertainty,
+                             const arma::Mat<T> &U_reference_ext = arma::zeros<arma::Mat<T>>(0),
+                             const arma::Mat<T> &V_reference_ext = arma::zeros<arma::Mat<T>>(0)) {
         // sort singular vectors of degenerate singular values:
         uint current_SV_position = 0;
         bool start_swapping = false;
         arma::Mat<T> degenerate_Us;
         arma::Mat<T> degenerate_Vs;
+
+        arma::Mat<T> U_reference = arma::eye(U.n_rows, U.n_cols);
+        arma::Mat<T> V_reference = arma::eye(V.n_rows, V.n_cols);
+
+        if(U_reference.n_elem > 0) {
+            if((U_reference.n_rows != U.n_rows || U_reference.n_cols < U.n_cols)
+                || (V_reference.n_rows != V.n_rows || V_reference.n_cols < V.n_cols)) {
+                std::cerr << "  In ATRG::stabilize_SV: reference is too small!" << std::endl;
+
+                return;
+            }
+        }
+
 
         for(uint i = 1; i < S.n_elem; ++i) {
             auto difference = std::abs(1.0 - (S[i] / S[current_SV_position]));
@@ -80,22 +95,56 @@ namespace ATRG {
                     }
                 } else {
                     // cycle through all SV in U_reference and compute U(j) * U(k) -> find best match
-                    std::vector<T> match(degenerate_Us.n_cols);
+                    for(uint j = 0; j < degenerate_Us.n_cols; ++j) {
+                        std::vector<T> match(degenerate_Us.n_cols - j);
+                        double match_norm = 0;
+                        uint best_match = j;
+                        double best_match_value = 0;
 
-                    for(uint j = 0; j < degenerate_Us.n_cols - 1; ++j) {
                         for(uint k = j; k < degenerate_Us.n_cols; ++k) {
-                            match[k] = std::abs(arma::dot(U_reference.col(j), degenerate_Us.col(k)));
+                            match[k - j] = arma::dot(U_reference.col(j), degenerate_Us.col(k));
+                            match_norm += match[k - j] * match[k - j];
+
+                            if(std::abs(match[k - j]) > std::abs(best_match_value)) {
+                                best_match = k;
+                                best_match_value = match[k - j];
+                            }
+                        }
+                        match_norm = std::sqrt(match_norm);
+
+                        arma::Col<T> new_U_col(degenerate_Us.n_rows, arma::fill::zeros);
+                        for(uint k = j; k < degenerate_Us.n_cols; ++k) {
+                            new_U_col += (match[k - j] / match_norm) * degenerate_Us.col(k);
+                        }
+                        degenerate_Us.col(best_match) = new_U_col;
+
+
+                        // same for V
+                        match_norm = 0;
+                        for(uint k = j; k < degenerate_Vs.n_cols; ++k) {
+                            match[k - j] = arma::dot(V_reference.col(j), degenerate_Vs.col(k));
+                            match_norm += match[k - j] * match[k - j];
+                        }
+                        match_norm = std::sqrt(match_norm);
+
+                        arma::Col<T> new_V_col(degenerate_Vs.n_rows, arma::fill::zeros);
+                        for(uint k = j; k < degenerate_Vs.n_cols; ++k) {
+                            new_V_col += (match[k - j] / match_norm) * degenerate_Vs.col(k);
+                        }
+                        degenerate_Vs.col(best_match) = new_V_col;
+
+
+                        // swap
+                        if(best_match != j) {
+                            degenerate_Us.swap_cols(j, best_match);
+                            degenerate_Vs.swap_cols(j, best_match);
+                            S.swap_rows(current_SV_position + j, current_SV_position + best_match);
                         }
 
-                        auto best_match = std::distance(match.begin() + j, std::max_element(match.begin() + j, match.end()));
-
-                        degenerate_Us.swap_cols(j, j + best_match);
-                        degenerate_Vs.swap_cols(j, j + best_match);
-                        S.swap_rows(current_SV_position + j, current_SV_position + j + best_match);
 
                         // orthogonalize remaining vectors with respect to the already matched vectors
                         for(uint k = j + 1; k < degenerate_Us.n_cols; ++k) {
-                            for(uint m = 0; m < j; ++m) {
+                            for(uint m = j; m < k; ++m) {
                                 degenerate_Us.col(k) -= arma::dot(degenerate_Us.col(m), degenerate_Us.col(k))
                                                         * degenerate_Us.col(m);
                             }
@@ -104,7 +153,7 @@ namespace ATRG {
                         }
 
                         for(uint k = j + 1; k < degenerate_Vs.n_cols; ++k) {
-                            for(uint m = 0; m < j; ++m) {
+                            for(uint m = j; m < k; ++m) {
                                 degenerate_Vs.col(k) -= arma::dot(degenerate_Vs.col(m), degenerate_Vs.col(k))
                                                         * degenerate_Vs.col(m);
                             }
@@ -161,6 +210,7 @@ namespace ATRG {
     template <typename T>
     inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const arma::Mat<T> &V_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         if(!arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows))) {
             std::cerr << "  could not perform sparse SVD!" << std::endl;
@@ -188,6 +238,7 @@ namespace ATRG {
     template <typename T>
     inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const arma::Mat<T> &V_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         if(!arma::svd(U, S, V, Q)) {
             std::cerr << "  could not perform SVD!" << std::endl;
@@ -199,17 +250,8 @@ namespace ATRG {
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);
 
-
-#ifdef DEBUG
-        double diff_to_unitary_U = arma::norm(arma::eye(U.n_cols, U.n_cols) - U.t() * U, "fro");
-        double diff_to_unitary_V = arma::norm(arma::eye(V.n_cols, V.n_cols) - V.t() * V, "fro");
-        std::cout << "difference to unitarity U: " << diff_to_unitary_U << std::endl
-                  << "                        V: " << diff_to_unitary_V << std::endl;
-#endif
-
-
         if(SV_uncertainty >= 0) {
-            stabilize_SV(S, U, V, D, SV_uncertainty, U_reference);
+            stabilize_SV(S, U, V, D, SV_uncertainty, U_reference, V_reference);
         }
 
         if(D <= S.n_elem) {
@@ -217,8 +259,20 @@ namespace ATRG {
             U.resize(U.n_rows, S.n_elem);
             V.resize(V.n_rows, S.n_elem);
         } else {
-            std::cerr << "  in svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
+            std::cerr << "  In ATRG::svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
         }
+
+#ifdef DEBUG
+        double diff_to_unitary_U = arma::norm(arma::eye(U.n_cols, U.n_cols) - U.t() * U, "fro");
+        double diff_to_unitary_V = arma::norm(arma::eye(V.n_cols, V.n_cols) - V.t() * V, "fro");
+        std::cout << "difference to unitarity U: " << diff_to_unitary_U << std::endl
+                  << "                        V: " << diff_to_unitary_V << std::endl;
+
+        if(diff_to_unitary_U > 1e-10 || diff_to_unitary_V > 1e-10) {
+            std::cerr << "  In ATRG::svd: sometry not unitary!" << std::endl;
+            throw 0;
+        }
+#endif
 
         if(cutoff > 0) {
             U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
@@ -235,24 +289,27 @@ namespace ATRG {
 
     template <class MatrixType, typename T>
     inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, const uint D,
-                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0)) {
+                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const arma::Mat<T> &V_reference = arma::zeros<arma::Mat<T>>(0)) {
         arma::Col<T> S;
 
-        return svd(Q, U, V, S, D, U_reference);
+        return svd(Q, U, V, S, D, U_reference, V_reference);
     }
 
 
     template <class MatrixType, typename T>
     inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S,
-                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0)) {
-        return svd(Q, U, V, S, std::min(Q.n_cols, Q.n_rows), U_reference);
+                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const arma::Mat<T> &V_reference = arma::zeros<arma::Mat<T>>(0)) {
+        return svd(Q, U, V, S, std::min(Q.n_cols, Q.n_rows), U_reference, V_reference);
     }
 
 
     template <class MatrixType, typename T>
     inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V,
-                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0)) {
-        return svd(Q, U, V, std::min(Q.n_cols, Q.n_rows), U_reference);
+                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const arma::Mat<T> &V_reference = arma::zeros<arma::Mat<T>>(0)) {
+        return svd(Q, U, V, std::min(Q.n_cols, Q.n_rows), U_reference, V_reference);
     }
 
 

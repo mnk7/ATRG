@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
     std::vector<uint> blockings = {1, 1};
     double delta = 5e-3;
 
-    for(double T = 0.1; T <= 3.95; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {
+    for(double T = 0.2; T <= 0.25; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {
         std::cout << "computing at T = " << T << std::endl;
 
         ATRG::Tensor<double> tensor;

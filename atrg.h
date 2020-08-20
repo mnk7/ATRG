@@ -414,7 +414,7 @@ namespace ATRG {
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
                        arma::Mat<T> &U_G_reference,
-                       arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
+                       arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K, arma::Mat<T> &V_K) {
         arma::Mat<T> flat_G;
         // order in G: all forward indices, contraction direction backward
         G.flatten(forward_indices, {G.get_order() - 1}, flat_G);
@@ -440,7 +440,6 @@ namespace ATRG {
         flat_G = flat_G.t() * flat_H;
         flat_H.set_size(0);
         arma::Col<T> S_K;
-        arma::Mat<T> V_K;
         error += svd(flat_G, U_K, V_K, S_K, U_G, -1);
 
         // update the alpha bond
@@ -487,17 +486,18 @@ namespace ATRG {
         arma::Mat<T> U_G;
         arma::Mat<T> U_H;
         arma::Mat<T> U_K;
+        arma::Mat<T> V_K;
 
         contract_bond(G, H, A, B, C, D, blocking_direction, error,
-                      forward_indices, forward_dimensions_and_alpha, U_G_reference, U_G, U_H, U_K);
+                      forward_indices, forward_dimensions_and_alpha, U_G_reference, U_G, U_H, U_K, V_K);
     }
 
 
 
     template <typename T>
-    void contract_impure_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &B, const uint blocking_direction,
+    void contract_impure_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &B_t, ATRG::Tensor<T> &C_b, const uint blocking_direction,
                               const std::vector<uint> &forward_indices, const std::vector<uint> &forward_dimensions_and_alpha,
-                              arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
+                              arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K, arma::Mat<T> &V_K) {
 
         arma::Mat<T> flat;
         // order in G: all forward indices, contraction direction backward
@@ -514,8 +514,14 @@ namespace ATRG {
         // but we transpose the operation to make the flattening easier
         flat = SV_H.t() * SV_G * U_K;
         flat = U_H * flat;
-        B.reshape(forward_dimensions_and_alpha);
-        B.inflate(forward_indices, {B.get_order() - 1}, flat);
+        B_t.reshape(forward_dimensions_and_alpha);
+        B_t.inflate(forward_indices, {B_t.get_order() - 1}, flat);
+
+
+        flat = SV_G.t() * SV_H * V_K;
+        flat = U_G * flat;
+        C_b.reshape(forward_dimensions_and_alpha);
+        C_b.inflate(forward_indices, {C_b.get_order() - 1}, flat);
     }
 
 
@@ -618,12 +624,15 @@ namespace ATRG {
                 arma::Mat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
+        arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, S, D_truncated);
+        error += svd(flat, U, V, S, D_truncated);
 
         // multiply U.t() at flat -> {alpha, backward_indices}
         // use the transpose instead to make the inflating cheaper
-        flat = flat.t() * U;
+        //flat = flat.t() * U;
+        arma::Mat<T> SVp = ATRG::U_times_S(V, S);
+        arma::Mat<T> US = ATRG::U_times_S(U, S);
 
 #ifdef DEBUG
         std::cout << "U:" << std::endl << U << std::endl;
@@ -650,9 +659,9 @@ namespace ATRG {
         // the columns only have alpha as an index, meaning the last index of the tensor
         // B and D hold the backward modes, so their indices are relabeled
         A.inflate(forward_indices, {A.get_order() - 1}, U);
-        B.inflate(forward_indices, {B.get_order() - 1}, flat);
-        C.inflate(forward_indices, {C.get_order() - 1}, U);
-        D.inflate(forward_indices, {D.get_order() - 1}, flat);
+        B.inflate(forward_indices, {B.get_order() - 1}, SVp);
+        C.inflate(forward_indices, {C.get_order() - 1}, US);
+        D.inflate(forward_indices, {D.get_order() - 1}, V);
 
         tensor.reshape({0});
 
@@ -802,13 +811,13 @@ namespace ATRG {
             std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
 
             // make new A, B, C, D from G and H
-            /**contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
+            contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
-                          U_G_reference);**/
+                          U_G_reference);
 
 
             // H has the bond to G and the backward index in blocking direction swapped.
-            auto new_index_order = forward_indices;
+            /**auto new_index_order = forward_indices;
             new_index_order[old_blocking_direction] = new_index_order.size();
             new_index_order.push_back(old_blocking_direction);
             H.reorder(new_index_order);
@@ -816,7 +825,7 @@ namespace ATRG {
             A = G;
             B = H;
             C = G;
-            D = H;
+            D = H;**/
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
@@ -893,16 +902,20 @@ namespace ATRG {
         arma::Mat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
+        arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, S, D_truncated);
+        error += svd(flat, U, V, S, D_truncated);
 
         // multiply U.t() at flat -> {alpha, backward_indices}
         // use the transpose instead to make the inflating cheaper
-        flat = flat.t() * U;
+        //flat = flat.t() * U;
+        arma::Mat<T> SVp = ATRG::U_times_S(V, S);
+        arma::Mat<T> US = ATRG::U_times_S(U, S);
 
         arma::Mat<T> flat_impure;
         impurity.flatten(forward_indices, backward_indices, flat_impure);
-        flat_impure = flat_impure.t() * U;
+        arma::Mat<T> SVp_impure = flat_impure.t() * U;
+        arma::Mat<T> US_impure = flat_impure * V;
 
 
         auto dimensions = tensor.get_dimensions();
@@ -925,22 +938,20 @@ namespace ATRG {
         // the columns only have alpha as an index, meaning the last index of the tensor
         // B and D hold the backward modes, so their indices are relabeled
         A.inflate(forward_indices, {A.get_order() - 1}, U);
-        B.inflate(forward_indices, {B.get_order() - 1}, flat);
-        C.inflate(forward_indices, {C.get_order() - 1}, U);
-        D.inflate(forward_indices, {D.get_order() - 1}, flat);
+        B.inflate(forward_indices, {B.get_order() - 1}, SVp);
+        C.inflate(forward_indices, {C.get_order() - 1}, US);
+        D.inflate(forward_indices, {D.get_order() - 1}, V);
 
 
         // symmetrize Impurity -> compute contraction with impurity on top and impurity bottom and average
         // use the same U for the impure tensor
         ATRG::Tensor<T> B_impure_t(backward_dimensions_and_alpha);
         ATRG::Tensor<T> C_impure_b(forward_dimensions_and_alpha);
-        ATRG::Tensor<T> D_impure_b(backward_dimensions_and_alpha);
 
-        arma::Mat<T> flat_impure_copy = flat_impure;
         // impure tensor top
-        B_impure_t.inflate(forward_indices, {B_impure_t.get_order() - 1}, flat_impure);
+        B_impure_t.inflate(forward_indices, {B_impure_t.get_order() - 1}, SVp_impure);
         // impure tensor bottom
-        D_impure_b.inflate(forward_indices, {D_impure_b.get_order() - 1}, flat_impure_copy);
+        C_impure_b.inflate(forward_indices, {C_impure_b.get_order() - 1}, US_impure);
 
 
         tensor.reshape({0});
@@ -955,6 +966,7 @@ namespace ATRG {
 
         ATRG::Tensor<T> Y_impure_t;
         ATRG::Tensor<T> H_impure_t;
+        ATRG::Tensor<T> Y_impure_b;
         ATRG::Tensor<T> H_impure_b;
 
         std::cout << "    decomposed initial tensor...  " <<
@@ -1008,12 +1020,15 @@ namespace ATRG {
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M);
 
-            // bottom impurity has pure X and Y
+            swap_impure_bonds(B_pure, C_impure_b, Y_impure_b, blocking_direction,
+                              forward_indices, forward_dimensions_and_alpha_copy,
+                              U_B, U_C, U_M);
 
 
             auto Y_scale = std::max(std::abs(Y.max()), std::abs(Y.min()));
             Y.rescale(1.0 / Y_scale);
             Y_impure_t.rescale(1.0 / Y_scale);
+            Y_impure_b.rescale(1.0 / Y_scale);
 
             logScalefactors += remaining_volume * std::log(Y_scale);
 
@@ -1028,8 +1043,8 @@ namespace ATRG {
 
 
             // contract the double bonds of A, X in forward and B, D in backward direction
-            ATRG::Tensor<T> D_pure = D;
-            ATRG::Tensor<T> Y_pure = Y;
+            ATRG::Tensor<T> D_pure_t = D;
+            ATRG::Tensor<T> D_pure_b = D;
 
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
@@ -1042,8 +1057,8 @@ namespace ATRG {
             auto all_dimensions = squeeze(A, X, G, E_i, blocking_direction, forward_indices, backward_indices, D_truncated);
             squeeze(Y, D, H, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
 
-            squeeze(Y_impure_t, D_pure, H_impure_t, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
-            squeeze(Y_pure, D_impure_b, H_impure_b, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
+            squeeze(Y_impure_t, D_pure_t, H_impure_t, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
+            squeeze(Y_impure_b, D_pure_b, H_impure_b, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
 
             // update the bond size
             for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {
@@ -1147,23 +1162,23 @@ namespace ATRG {
 
             // reuse U_B, U_C, U_M as U_G, U_H, U_K
             // make new A, B, C, D from G and H
-            /**
             ATRG::Tensor<T> G_pure = G;
 
             arma::Mat<T> U_G;
             arma::Mat<T> U_H;
             arma::Mat<T> U_K;
+            arma::Mat<T> V_K;
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
                           U_G_reference,
-                          U_G, U_H, U_K);
+                          U_G, U_H, U_K, V_K);
 
-            contract_impure_bond(G, H_impure, B_impure, old_blocking_direction,
+            contract_impure_bond(G_pure, H_impure_t, B_impure_t, C_impure_b, old_blocking_direction,
                                  forward_indices, forward_dimensions_and_alpha,
-                                 U_G, U_H, U_K);**/
+                                 U_G, U_H, U_K, V_K);
 
             // H has the bond to G and the backward index in blocking direction swapped.
-            auto new_index_order = forward_indices;
+            /**auto new_index_order = forward_indices;
             new_index_order[old_blocking_direction] = new_index_order.size();
             new_index_order.push_back(old_blocking_direction);
             H.reorder(new_index_order);
@@ -1176,7 +1191,7 @@ namespace ATRG {
             H_impure_t.reorder(new_index_order);
             B_impure_t = H_impure_t;
 
-            D_impure_b = H_impure_t;
+            C_impure_b = H_impure_t;**/
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;

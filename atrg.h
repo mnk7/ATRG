@@ -115,7 +115,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, U_M_reference);
+        error += svd(B_flat, U_M, S, D_truncated, U_M_reference, -1);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -447,7 +447,7 @@ namespace ATRG {
         flat_H.set_size(0);
         arma::Col<T> S_K;
         arma::Mat<T> V_K;
-        error += svd(flat_G, U_K, V_K, S_K, U_G);
+        error += svd(flat_G, U_K, V_K, S_K, U_G, -1);
 
         // update the alpha bond
         forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1] = S_K.n_elem;
@@ -621,18 +621,18 @@ namespace ATRG {
 
         //=============================================================================================
 
-        arma::Mat<T> flat;
+                arma::Mat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
-        arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated);
+        error += svd(flat, U, S, D_truncated);
 
-        flat.set_size(0);
+        // multiply U.t() at flat -> {alpha, backward_indices}
+        // use the transpose instead to make the inflating cheaper
+        flat = flat.t() * U;
 
 #ifdef DEBUG
         std::cout << "U:" << std::endl << U << std::endl;
-        std::cout << "V:" << std::endl << V << std::endl;
 #endif
 
 
@@ -646,8 +646,6 @@ namespace ATRG {
         auto backward_dimensions_and_alpha(backward_dimensions);
         backward_dimensions_and_alpha.push_back(U.n_cols);
 
-        // we don't need the tensor from here on, so we free the memory
-        tensor.reshape({0});
 
         // create A, B, C, D tensors from our SVD results:
         ATRG::Tensor<T> A(forward_dimensions_and_alpha);
@@ -655,18 +653,15 @@ namespace ATRG {
         ATRG::Tensor<T> C(forward_dimensions_and_alpha);
         ATRG::Tensor<T> D(backward_dimensions_and_alpha);
 
-        arma::Mat<T> US(U_times_S(U, S));
-        arma::Mat<T> SVp(U_times_S(V, S));
-
         // the columns only have alpha as an index, meaning the last index of the tensor
         // B and D hold the backward modes, so their indices are relabeled
         A.inflate(forward_indices, {A.get_order() - 1}, U);
-        B.inflate(forward_indices, {B.get_order() - 1}, SVp);
-        C.inflate(forward_indices, {C.get_order() - 1}, US);
-        D.inflate(forward_indices, {D.get_order() - 1}, V);
+        B.inflate(forward_indices, {B.get_order() - 1}, flat);
+        C.inflate(forward_indices, {C.get_order() - 1}, U);
+        D.inflate(forward_indices, {D.get_order() - 1}, flat);
 
-        US.set_size(0);
-        SVp.set_size(0);
+        tensor.reshape({0});
+
 
         // intermediate tensors that we will need during the blocking
         ATRG::Tensor<T> X;
@@ -810,12 +805,11 @@ namespace ATRG {
             std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
 
             // make new A, B, C, D from G and H
-            /**
-            contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
+            /**contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
-                          U_G_reference);
-                          **/
-            // H has the bond to G and the backward index in blocking direction swapped.
+                          U_G_reference);**/
+
+             // H has the bond to G and the backward index in blocking direction swapped.
             auto new_index_order = forward_indices;
             new_index_order[old_blocking_direction] = new_index_order.size();
             new_index_order.push_back(old_blocking_direction);
@@ -901,11 +895,16 @@ namespace ATRG {
         arma::Mat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
-        arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated);
+        error += svd(flat, U, S, D_truncated);
 
-        impurity.flatten(forward_indices, backward_indices, flat);
+        // multiply U.t() at flat -> {alpha, backward_indices}
+        // use the transpose instead to make the inflating cheaper
+        flat = flat.t() * U;
+
+        arma::Mat<T> flat_impure;
+        impurity.flatten(forward_indices, backward_indices, flat_impure);
+        flat_impure = flat_impure.t() * U;
 
 
         auto dimensions = tensor.get_dimensions();
@@ -918,8 +917,6 @@ namespace ATRG {
         auto backward_dimensions_and_alpha(backward_dimensions);
         backward_dimensions_and_alpha.push_back(U.n_cols);
 
-        tensor.reshape({0});
-
 
         // create A, B, C, D tensors from our SVD results:
         ATRG::Tensor<T> A(forward_dimensions_and_alpha);
@@ -927,31 +924,25 @@ namespace ATRG {
         ATRG::Tensor<T> C(forward_dimensions_and_alpha);
         ATRG::Tensor<T> D(backward_dimensions_and_alpha);
 
+        // the columns only have alpha as an index, meaning the last index of the tensor
+        // B and D hold the backward modes, so their indices are relabeled
+        A.inflate(forward_indices, {A.get_order() - 1}, U);
+        B.inflate(forward_indices, {B.get_order() - 1}, flat);
+        C.inflate(forward_indices, {C.get_order() - 1}, U);
+        D.inflate(forward_indices, {D.get_order() - 1}, flat);
+
+
         // use the same U and V for the impure tensor
         ATRG::Tensor<T> B_impure(backward_dimensions_and_alpha);
         ATRG::Tensor<T> C_impure(forward_dimensions_and_alpha);
         ATRG::Tensor<T> D_impure(backward_dimensions_and_alpha);
 
-        arma::Mat<T> US(U_times_S(U, S));
-        arma::Mat<T> SVp(U_times_S(V, S));
-
-        // the columns only have alpha as an index, meaning the last index of the tensor
-        // B and D hold the backward modes, so their indices are relabeled
-        A.inflate(forward_indices, {A.get_order() - 1}, U);
-        B.inflate(forward_indices, {B.get_order() - 1}, SVp);
-        C.inflate(forward_indices, {C.get_order() - 1}, US);
-        D.inflate(forward_indices, {D.get_order() - 1}, V);
+        B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat_impure);
 
 
-        // multiply U.t() at flat -> {alpha, backward_indices}
-        // use the transpose instead to make the inflating cheaper
-        flat = flat.t() * U;
-        B_impure.inflate(forward_indices, {B_impure.get_order() - 1}, flat);
-
-        // we don't need the tensors from here on, so we free the memory
+        tensor.reshape({0});
         impurity.reshape({0});
-        US.set_size(0);
-        SVp.set_size(0);
+
 
         // intermediate tensors that we will need during the blocking
         ATRG::Tensor<T> X;

@@ -2,7 +2,7 @@
 clear all;
 clc;
 
-inputMC = dlmread('Sweep_n32_t32_d1_b0.100000_J1.000000_B0.000000.dat', ' ', 0, 0);
+inputMC = dlmread('Sweep_n2_t2_d1_b0.100000_J1.000000_B0.000000.dat', ' ', 0, 0);
 inputHOTRG = dlmread('HOTRG_Ising_sweep_L2.dat', '\t', 0, 0);
 inputATRG = dlmread('Ising_sweep.dat', ' ', 0, 0);
 

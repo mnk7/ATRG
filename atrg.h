@@ -34,7 +34,6 @@ namespace ATRG {
      */
     template <typename T>
     void assemble_new_bonds(ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, arma::Mat<T> &X_flat, arma::Mat<T> &Y_flat, const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const uint blocking_direction,
-                            T &error, T &residual_error, const bool compute_residual_error,
                             const std::vector<uint> &forward_indices, const std::vector<uint> &not_blocked_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint truncated_dimension) {
         uint mu_dimension = U_B.n_cols;
         uint nu_dimension = U_C.n_cols;
@@ -67,8 +66,7 @@ namespace ATRG {
 
 
     template <typename T>
-    void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
-                    T &error, T &residual_error, const bool compute_residual_error,
+    void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
                     const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                     arma::Mat<T> &U_B_reference, arma::Mat<T> &U_M_reference,
                     arma::Mat<T> &U_B, arma::Mat<T> &U_C, arma::Mat<T> &U_M) {
@@ -83,12 +81,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        auto svd_error = svd(B_flat, U_B, S_B, D_truncated * D_truncated, U_B_reference);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, U_B_reference, -1);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -101,12 +94,7 @@ namespace ATRG {
 
 
         arma::Col<T> S_C;
-        svd_error = svd(C_flat, U_C, S_C, D_truncated * D_truncated, U_B);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(C_flat, U_C, S_C, D_truncated * D_truncated, U_B);
 
         uint nu_dimension = U_C.n_cols;
 
@@ -127,12 +115,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        svd_error += svd(B_flat, U_M, S, D_truncated, U_M_reference);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(B_flat, U_M, S, D_truncated, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -150,15 +133,13 @@ namespace ATRG {
 #endif
 
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
-                           error, residual_error, compute_residual_error,
                            forward_indices, not_blocked_indices, forward_dimensions_and_alpha, truncated_dimension);
     }
 
 
 
     template <typename T>
-    void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
-                    T &error, T &residual_error, const bool compute_residual_error,
+    void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
                     const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                     arma::Mat<T> &U_B_reference, arma::Mat<T> &U_M_reference) {
 
@@ -166,7 +147,7 @@ namespace ATRG {
         arma::Mat<T> U_C;
         arma::Mat<T> U_M;
 
-        swap_bonds(B, C, X, Y, blocking_direction, error, residual_error, compute_residual_error,
+        swap_bonds(B, C, X, Y, blocking_direction, error,
                    forward_indices, forward_dimensions_and_alpha, D_truncated,
                    U_B_reference, U_M_reference,
                    U_B, U_C, U_M);
@@ -176,7 +157,6 @@ namespace ATRG {
 
     template <typename T>
     void swap_impure_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
-                           T &error, T &residual_error, const bool compute_residual_error,
                            const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
                            const arma::Mat<T> &U_B, const arma::Mat<T> &U_C, const arma::Mat<T> &U_M) {
         arma::Mat<T> B_flat;
@@ -221,7 +201,6 @@ namespace ATRG {
         uint truncated_dimension = U_M.n_cols;
 
         assemble_new_bonds(X, Y, B_flat, C_flat, U_B, U_C, blocking_direction,
-                           error, residual_error, compute_residual_error,
                            forward_indices, not_blocked_indices, forward_dimensions_and_alpha, truncated_dimension);
     }
 
@@ -231,8 +210,7 @@ namespace ATRG {
      * helper function for squeeze_bonds; computes an isometry from two tensors
      */
     template <typename T>
-    void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index,
-                  T &error, T &residual_error, const bool compute_residual_error,
+    void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index, T &error,
                   const std::vector<uint> &psi_indices, const uint D_truncated,
                   arma::Mat<T> &U_P_reference) {
         arma::Mat<T> L_mat;
@@ -272,12 +250,7 @@ namespace ATRG {
         // U should be an isometry
         // V.t() * U = 1
         // order in U/V: {index_A, index_X}, eta
-        auto svd_error = svd(P, U_P, S, D_truncated, U_P_reference);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(P, U_P, S, D_truncated, U_P_reference, -1);
 
         U_P_reference = U_P;
     }
@@ -352,8 +325,7 @@ namespace ATRG {
 
 
     template <typename T>
-    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction,
-                       T &error, T &residual_error, const bool compute_residual_error,
+    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                        std::vector<arma::Mat<T>> &U_P_reference, std::vector<arma::Mat<T>> &U_N_reference,
                        std::vector<arma::Mat<T>> &E_i, std::vector<arma::Mat<T>> &F_i) {
@@ -377,26 +349,18 @@ namespace ATRG {
 
             // compute an isometry from A and X
             arma::Mat<T> U_P;
-            isometry(A, X, U_P, index, error, residual_error, compute_residual_error, psi_indices, D_truncated, U_P_reference[index]);
+            isometry(A, X, U_P, index, error, psi_indices, D_truncated, U_P_reference[index]);
 
             // repeat for Y and D
             arma::Mat<T> U_Q;
-            isometry(Y, D, U_Q, index, error, residual_error, compute_residual_error, psi_indices, D_truncated, U_P_reference[index]);
+            isometry(Y, D, U_Q, index, error, psi_indices, D_truncated, U_P_reference[index]);
 
             // insert the isometries U/V between A-X and Y-D: U_P_T - U_P = U_Q - U_Q_T
             // and remodel U_P = U_Q to get one instead of two bonds
             arma::Mat<T> N = U_P.t() * U_Q;
             arma::Col<T> S;
             arma::Mat<T> U_N;
-            arma::Mat<T> V_N;
-            error += svd(N, U_N, V_N, S, U_N_reference[index]);
-
-            if(compute_residual_error) {
-                auto residual_error_N = residual_svd(N, U_N, V_N, S);
-                residual_error += residual_error_N * residual_error_N;
-            }
-
-            S.for_each([](auto &element) {element = std::sqrt(element);});
+            error += svd(N, U_N, S, U_N_reference[index], -1);
 
             // compute the index in E_i, F_i
             uint i = index;
@@ -410,8 +374,8 @@ namespace ATRG {
              * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
              */
             // {index_A, index_X}, new index
-            E_i[i] = U_P * U_times_S(U_N, S);
-            F_i[i] = U_Q * U_times_S(V_N, S);
+            E_i[i] = U_P * U_N;
+            F_i[i] = U_Q * N.t() * U_N;
 
 
             U_N_reference[index] = U_N[index];
@@ -420,7 +384,6 @@ namespace ATRG {
             std::cout << "U_P:" << std::endl << U_P << std::endl;
             std::cout << "U_Q:" << std::endl << U_Q << std::endl;
             std::cout << "U_N:" << std::endl << U_N << std::endl;
-            std::cout << "V_N:" << std::endl << V_N << std::endl;
             std::cout << "E_" << i << ":" << std::endl << E_i[i] << std::endl;
             std::cout << "F_" << i << ":" << std::endl << F_i[i] << std::endl;
 #endif
@@ -430,14 +393,13 @@ namespace ATRG {
 
 
     template <typename T>
-    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction,
-                       T &error, T &residual_error, const bool compute_residual_error,
+    void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
                        std::vector<arma::Mat<T>> &U_P_reference, std::vector<arma::Mat<T>> &U_N_reference) {
         std::vector<arma::Mat<T>> E_i;
         std::vector<arma::Mat<T>> F_i;
 
-        compute_squeezers(A, D, X, Y, blocking_direction, error, residual_error, compute_residual_error,
+        compute_squeezers(A, D, X, Y, blocking_direction, error,
                          forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                          U_P_reference, U_N_reference, E_i, F_i);
 
@@ -455,8 +417,7 @@ namespace ATRG {
 
 
     template <typename T>
-    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
-                       T &error, T &residual_error, const bool compute_residual_error,
+    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
                        arma::Mat<T> &U_G_reference,
                        arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
@@ -465,12 +426,7 @@ namespace ATRG {
         G.flatten(forward_indices, {G.get_order() - 1}, flat_G);
 
         arma::Col<T> S_G;
-        auto svd_error = svd(flat_G, U_G, S_G, U_G_reference, -1);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(flat_G, U_G, S_G, U_G_reference, -1);
 
 
         arma::Mat<T> flat_H;
@@ -480,12 +436,7 @@ namespace ATRG {
         H.flatten(backward_indices_in_H, {blocking_direction}, flat_H);
 
         arma::Col<T> S_H;
-        svd_error = svd(flat_H, U_H, S_H, U_G);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(flat_H, U_H, S_H, U_G);
 
 
         flat_G = flat_G.t() * U_G;
@@ -496,12 +447,7 @@ namespace ATRG {
         flat_H.set_size(0);
         arma::Col<T> S_K;
         arma::Mat<T> V_K;
-        svd_error = svd(flat_G, U_K, V_K, S_K, U_G);
-        error += svd_error;
-
-        if(compute_residual_error) {
-            residual_error += svd_error;
-        }
+        error += svd(flat_G, U_K, V_K, S_K, U_G);
 
         // update the alpha bond
         forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1] = S_K.n_elem;
@@ -541,15 +487,14 @@ namespace ATRG {
 
 
     template <typename T>
-    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction,
-                       T &error, T &residual_error, const bool compute_residual_error,
+    void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
                        arma::Mat<T> &U_G_reference) {
         arma::Mat<T> U_G;
         arma::Mat<T> U_H;
         arma::Mat<T> U_K;
 
-        contract_bond(G, H, A, B, C, D, blocking_direction, error, residual_error, compute_residual_error,
+        contract_bond(G, H, A, B, C, D, blocking_direction, error,
                       forward_indices, forward_dimensions_and_alpha, U_G_reference, U_G, U_H, U_K);
     }
 
@@ -557,7 +502,6 @@ namespace ATRG {
 
     template <typename T>
     void contract_impure_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &B, const uint blocking_direction,
-                              T &error, T &residual_error, const bool compute_residual_error,
                               const std::vector<uint> &forward_indices, const std::vector<uint> &forward_dimensions_and_alpha,
                               arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K) {
 
@@ -602,7 +546,7 @@ namespace ATRG {
      */
     template<typename T>
     T result_with_scalefactors(const ATRG::Tensor<T> &G, const ATRG::Tensor<T> &H, const long double logScalefactors, const int volume,
-                               T &error, T &residual_error, bool print = true) {
+                               T &error, bool print = true) {
         auto last_result = trace(G, H);
 
         long double result = (logScalefactors + std::log(last_result)) / volume;
@@ -616,11 +560,8 @@ namespace ATRG {
             if(print) {
                 std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
 
-                auto error_last_step = std::log(std::abs(last_result)) * std::log(std::abs(last_result))
+                error += std::log(std::abs(last_result)) * std::log(std::abs(last_result))
                                     / (logScalefactors * logScalefactors);
-
-                error += error_last_step;
-                residual_error += error_last_step;
             }
 
             result = logScalefactors / volume;
@@ -637,8 +578,8 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    std::tuple<T, T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
-                                     const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
+    std::tuple<T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
+                                     const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
@@ -666,7 +607,6 @@ namespace ATRG {
          * and take the square root over everything in the end
          */
         T error = 0;
-        T residual_error = 0;
 
         long double logScalefactors = 0;
 
@@ -687,12 +627,6 @@ namespace ATRG {
         arma::Mat<T> V;
         arma::Col<T> S;
         error += svd(flat, U, V, S, D_truncated);
-
-        if(compute_residual_error) {
-            residual_error = residual_svd(flat, U, V, S);
-            // keep the squared error
-            residual_error *= residual_error;
-        }
 
         flat.set_size(0);
 
@@ -776,8 +710,7 @@ namespace ATRG {
             //=============================================================================================
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
-            swap_bonds(B, C, X, Y, blocking_direction,
-                       error, residual_error, compute_residual_error,
+            swap_bonds(B, C, X, Y, blocking_direction, error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated,
                        U_B_reference, U_M_reference);
 
@@ -796,8 +729,7 @@ namespace ATRG {
 #endif
 
             // contract the double bonds of A, X in forward and B, D in backward direction
-            compute_squeezers(A, D, X, Y, G, H, blocking_direction,
-                              error, residual_error, compute_residual_error,
+            compute_squeezers(A, D, X, Y, G, H, blocking_direction, error,
                               forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                               U_P_reference, U_N_reference);
 
@@ -878,15 +810,26 @@ namespace ATRG {
             std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
 
             // make new A, B, C, D from G and H
-            contract_bond(G, H, A, B, C, D, old_blocking_direction,
-                          error, residual_error, compute_residual_error,
+            /**
+            contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
                           U_G_reference);
+                          **/
+            // H has the bond to G and the backward index in blocking direction swapped.
+            auto new_index_order = forward_indices;
+            new_index_order[old_blocking_direction] = new_index_order.size();
+            new_index_order.push_back(old_blocking_direction);
+            H.reorder(new_index_order);
+
+            A = G;
+            B = H;
+            C = G;
+            D = H;
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 
-        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error, residual_error);
+        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error);
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -895,7 +838,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {logZ, std::sqrt(error), std::sqrt(residual_error)};
+        return {logZ, std::sqrt(error)};
     }
 
 
@@ -905,9 +848,9 @@ namespace ATRG {
      * returns log(Z_impure) and an error estimate
      */
     template <typename T>
-    std::tuple<T, T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
+    std::tuple<T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
                                                 const std::vector<uint> lattice_dimensions, const uint D_truncated,
-                                                const bool compute_residual_error, const BlockingMode blocking_mode = t_blocking) {
+                                                const BlockingMode blocking_mode = t_blocking) {
         std::cout << "  computing log(Z) with one impurity:" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
@@ -938,7 +881,6 @@ namespace ATRG {
          * and take the square root over everything in the end
          */
         T error = 0;
-        T residual_error = 0;
 
         long double Scalefactors = 1;
         long double last_result = 0;
@@ -962,12 +904,6 @@ namespace ATRG {
         arma::Mat<T> V;
         arma::Col<T> S;
         error += svd(flat, U, V, S, D_truncated);
-
-        if(compute_residual_error) {
-            residual_error = residual_svd(flat, U, V, S);
-            // keep the squared error
-            residual_error *= residual_error;
-        }
 
         impurity.flatten(forward_indices, backward_indices, flat);
 
@@ -1071,14 +1007,12 @@ namespace ATRG {
             arma::Mat<T> U_B;
             arma::Mat<T> U_C;
             arma::Mat<T> U_M;
-            swap_bonds(B, C, X, Y, blocking_direction,
-                       error, residual_error, compute_residual_error,
+            swap_bonds(B, C, X, Y, blocking_direction, error,
                        forward_indices, forward_dimensions_and_alpha, D_truncated,
                        U_B_reference, U_M_reference,
                        U_B, U_C, U_M);
 
             swap_impure_bonds(B_impure, C_impure, X_impure, Y_impure, blocking_direction,
-                              error, residual_error, compute_residual_error,
                               forward_indices, forward_dimensions_and_alpha_copy,
                               U_B, U_C, U_M);
 
@@ -1106,8 +1040,7 @@ namespace ATRG {
             // contract the double bonds of A, X in forward and B, D in backward direction
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
-            compute_squeezers(A, D, X, Y, blocking_direction,
-                          error, residual_error, compute_residual_error,
+            compute_squeezers(A, D, X, Y, blocking_direction, error,
                           forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
                           U_P_reference, U_N_reference,
                           E_i, F_i);
@@ -1214,19 +1147,31 @@ namespace ATRG {
 
             // reuse U_B, U_C, U_M as U_G, U_H, U_K
             // make new A, B, C, D from G and H
-            arma::Mat<T> U_G;
+            /**arma::Mat<T> U_G;
             arma::Mat<T> U_H;
             arma::Mat<T> U_K;
-            contract_bond(G, H, A, B, C, D, old_blocking_direction,
-                          error, residual_error, compute_residual_error,
+            contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
                           U_G_reference,
                           U_G, U_H, U_K);
 
             contract_impure_bond(G_impure, H_impure, B_impure, old_blocking_direction,
-                                 error, residual_error, compute_residual_error,
                                  forward_indices, forward_dimensions_and_alpha,
-                                 U_G, U_H, U_K);
+                                 U_G, U_H, U_K);**/
+
+            // H has the bond to G and the backward index in blocking direction swapped.
+            auto new_index_order = forward_indices;
+            new_index_order[old_blocking_direction] = new_index_order.size();
+            new_index_order.push_back(old_blocking_direction);
+            H.reorder(new_index_order);
+
+            A = G;
+            B = H;
+            C = G;
+            D = H;
+
+            H_impure.reorder(new_index_order);
+            B_impure = H_impure;
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
@@ -1244,15 +1189,13 @@ namespace ATRG {
             result = 20;
 
             // add the error (Scalefactors / (Scalefactors * last_result))^2
-            auto error_last_step = 1.0 / (last_result * last_result);
-            error += error_last_step;
-            residual_error += error_last_step;
+            error += 1.0 / (last_result * last_result);
         } else {
             result *= Scalefactors;
         }
 
 
-        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error, residual_error);
+        auto logZ = result_with_scalefactors(G, H, logScalefactors, volume, error);
 
 
         std::cout << std::endl << "\033[1;33m    Runtime:\033[0m " <<
@@ -1261,7 +1204,7 @@ namespace ATRG {
                      .count() / 1e3
                   << " seconds" << std::endl;
 
-        return {result, std::sqrt(error), std::sqrt(residual_error), logZ};
+        return {result, std::sqrt(error), logZ};
     }
 }
 

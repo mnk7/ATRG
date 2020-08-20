@@ -387,19 +387,18 @@ int main(int argc, char **argv) {
 
     //=============================================================================================
 
-    //auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_logZ(tensor, {10, 10}, 10, true, ATRG::t_blocking);
-    auto [logZ, error_logZ, residual_error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {3, 3, 3}, 8, true, ATRG::t_blocking);
+    //auto [logZ, error_logZ] = ATRG::compute_logZ(tensor, {10, 10}, 10, ATRG::t_blocking);
+    auto [logZ, error_logZ] = ATRG::compute_single_impurity(tensor, impurity, {3, 3, 3}, 8, ATRG::t_blocking);
 **/
     /**
      * C++11 version:
      *
-     * double logZ, error_logZ, residual_error_logZ;
-     * std::tie(logZ, error_logZ, residual_error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10, true);
+     * double logZ, error_logZ;
+     * std::tie(logZ, error_logZ) = ATRG::compute_logZ(tensor, {4, 4}, 10);
      */
 
 /**    std::cout << "      logZ:            " << logZ << std::endl;
-    std::cout << "      relative error:  " << error_logZ << std::endl;
-    std::cout << "      residual error:  " << residual_error_logZ << std::endl;**/
+    std::cout << "      relative error:  " << error_logZ << std::endl;**/
 
 
     // Ising sweep:
@@ -410,20 +409,20 @@ int main(int argc, char **argv) {
     std::vector<uint> blockings = {1, 1};
     double delta = 5e-3;
 
-    for(double T = 0.2; T <= 0.25; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {
+    for(double T = 0.1; T <= 4.05; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {
         std::cout << "computing at T = " << T << std::endl;
 
         ATRG::Tensor<double> tensor;
         ATRG::Tensor<double> impurity;
 
         Ising_Tensor(tensor, impurity, T, 2);
-        auto [E, error_E, residual_error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, blockings, D, true, ATRG::t_blocking);
+        auto [E, error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, blockings, D, ATRG::t_blocking);
 
         Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T + delta), 2);
-        auto [logZ_p, error_logZ_p, residual_error_p] = ATRG::compute_logZ(tensor, blockings, D, true, ATRG::t_blocking);
+        auto [logZ_p, error_logZ_p] = ATRG::compute_logZ(tensor, blockings, D, ATRG::t_blocking);
 
         Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T - delta), 2);
-        auto [logZ_m, error_logZ_m, residual_error_m] = ATRG::compute_logZ(tensor, blockings, D, true, ATRG::t_blocking);
+        auto [logZ_m, error_logZ_m] = ATRG::compute_logZ(tensor, blockings, D, ATRG::t_blocking);
 
         auto E_fd = (logZ_p - logZ_m) / (2 * delta);
         auto susz_fd = 1.0 / (T * T) * (logZ_m - 2.0 * logZ + logZ_p) / (delta * delta);

@@ -45,7 +45,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, U_B_reference, -1);
+        error += svd(B_flat, U_B, S_B, D_truncated, U_B_reference, -1);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -58,7 +58,7 @@ namespace ATRG {
 
 
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, S_C, D_truncated * D_truncated, U_B);
+        error += svd(C_flat, U_C, S_C, D_truncated, U_B);
 
         uint nu_dimension = U_C.n_cols;
 

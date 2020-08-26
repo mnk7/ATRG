@@ -525,6 +525,7 @@ namespace ATRG {
     }
 
 
+
     /**
      * compute the last trace; G and H have the forward and backward indices first
      * and then their common bond index last
@@ -621,18 +622,16 @@ namespace ATRG {
 
         //=============================================================================================
 
-                arma::Mat<T> flat;
+        arma::Mat<T> flat;
         tensor.flatten(forward_indices, backward_indices, flat);
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
         error += svd(flat, U, V, S, D_truncated, true);
 
-        // multiply U.t() at flat -> {alpha, backward_indices}
-        // use the transpose instead to make the inflating cheaper
-        //flat = flat.t() * U;
         arma::Mat<T> SVp = ATRG::U_times_S(V, S);
         arma::Mat<T> US = ATRG::U_times_S(U, S);
+
 
 #ifdef DEBUG
         std::cout << "U:" << std::endl << U << std::endl;
@@ -814,18 +813,6 @@ namespace ATRG {
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
                           U_G_reference);
-
-
-            // H has the bond to G and the backward index in blocking direction swapped.
-            /**auto new_index_order = forward_indices;
-            new_index_order[old_blocking_direction] = new_index_order.size();
-            new_index_order.push_back(old_blocking_direction);
-            H.reorder(new_index_order);
-
-            A = G;
-            B = H;
-            C = G;
-            D = H;**/
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
@@ -906,9 +893,6 @@ namespace ATRG {
         arma::Col<T> S;
         error += svd(flat, U, V, S, D_truncated, true);
 
-        // multiply U.t() at flat -> {alpha, backward_indices}
-        // use the transpose instead to make the inflating cheaper
-        //flat = flat.t() * U;
         arma::Mat<T> SVp = ATRG::U_times_S(V, S);
         arma::Mat<T> US = ATRG::U_times_S(U, S);
 
@@ -954,6 +938,7 @@ namespace ATRG {
         C_impure_b.inflate(forward_indices, {C_impure_b.get_order() - 1}, US_impure);
 
 
+
         tensor.reshape({0});
         impurity.reshape({0});
 
@@ -968,6 +953,7 @@ namespace ATRG {
         ATRG::Tensor<T> H_impure_t;
         ATRG::Tensor<T> Y_impure_b;
         ATRG::Tensor<T> H_impure_b;
+
 
         std::cout << "    decomposed initial tensor...  " <<
                      std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1025,6 +1011,7 @@ namespace ATRG {
                               U_B, U_C, U_M);
 
 
+
             auto Y_scale = std::max(std::abs(Y.max()), std::abs(Y.min()));
             Y.rescale(1.0 / Y_scale);
             Y_impure_t.rescale(1.0 / Y_scale);
@@ -1059,6 +1046,7 @@ namespace ATRG {
 
             squeeze(Y_impure_t, D_pure_t, H_impure_t, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
             squeeze(Y_impure_b, D_pure_b, H_impure_b, F_i, blocking_direction, forward_indices, backward_indices, D_truncated);
+
 
             // update the bond size
             for(decltype(all_dimensions.size()) i = 0; i < all_dimensions.size(); ++i) {
@@ -1176,22 +1164,6 @@ namespace ATRG {
             contract_impure_bond(G_pure, H_impure_t, B_impure_t, C_impure_b, old_blocking_direction,
                                  forward_indices, forward_dimensions_and_alpha,
                                  U_G, U_H, U_K, V_K);
-
-            // H has the bond to G and the backward index in blocking direction swapped.
-            /**auto new_index_order = forward_indices;
-            new_index_order[old_blocking_direction] = new_index_order.size();
-            new_index_order.push_back(old_blocking_direction);
-            H.reorder(new_index_order);
-
-            A = G;
-            B = H;
-            C = G;
-            D = H;
-
-            H_impure_t.reorder(new_index_order);
-            B_impure_t = H_impure_t;
-
-            C_impure_b = H_impure_t;**/
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;

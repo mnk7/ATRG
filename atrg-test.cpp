@@ -405,7 +405,7 @@ int main(int argc, char **argv) {
     std::ofstream sweep_file;
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
-    uint D = 10;
+    uint D = 2;
     std::vector<uint> blockings = {1, 1};
     double delta = 5e-3;
 

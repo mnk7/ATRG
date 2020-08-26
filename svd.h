@@ -193,12 +193,12 @@ namespace ATRG {
 
 
     template <typename T>
-    inline T redsvd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
+    inline void redsvd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         arma::Mat<T> Q_copy = Q;
         auto Q_eigen = Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>(Q_copy.memptr(), Q_copy.n_rows, Q_copy.n_cols);
 
         RedSVD::RedSVD<decltype(Q_eigen)> redsvd;
-        redsvd.compute(Q_eigen, D * D);
+        redsvd.compute(Q_eigen, 2 * D);
 
         auto U_eigen = redsvd.matrixU();
         auto V_eigen = redsvd.matrixV();
@@ -207,13 +207,72 @@ namespace ATRG {
         U = arma::Mat<T>(U_eigen.data(), U_eigen.rows(), U_eigen.cols(), false, true);
         V = arma::Mat<T>(V_eigen.data(), V_eigen.rows(), V_eigen.cols(), false, true);
         S = arma::Col<T>(S_eigen.data(), S_eigen.rows(), false, true);
+    }
+
+
+
+    /**
+     * compute SVD of a dense matrix by means of the eigenvalues of Q or with armadillos own svd function
+     * return the squared error
+     */
+    template <typename T>
+    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const bool use_redsvd = false,
+                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
+                 const double SV_uncertainty = 1e-3, const double cutoff = -1e-14, const bool only_U = false) {
+        if(use_redsvd) {
+            redsvd(Q, U, V, S, D);
+        } else {
+            if(!arma::svd(U, S, V, Q)) {
+                std::cerr << "  arma::svd failed! using redsvd:" << std::endl;
+
+                redsvd(Q, U, V, S, D);
+            }
+        }
 
         // compute the error from the singular values
         arma::Col<T> cumulative_sum = arma::cumsum(S * S);
 
-        S.resize(D);
-        U.resize(U.n_rows, S.n_elem);
-        V.resize(V.n_rows, S.n_elem);
+        uint new_size = S.n_elem;
+        if(D <= S.n_elem) {
+            new_size = D;
+        }
+
+        // cut off singular values that are 0
+        for(uint i = new_size; i > 0; --i) {
+            if(arma::norm(U.col(i - 1)) > 0.8) {
+                new_size = i;
+                break;
+            }
+        }
+
+        S.resize(new_size);
+        U.resize(U.n_rows, new_size);
+        V.resize(V.n_rows, new_size);
+
+
+        if(SV_uncertainty >= 0) {
+            stabilize_SV(S, U, V, D, SV_uncertainty, U_reference, only_U);
+        }
+
+#ifdef DEBUG
+        double diff_to_unitary_U = arma::norm(arma::eye(U.n_cols, U.n_cols) - U.t() * U, "fro");
+        double diff_to_unitary_V = arma::norm(arma::eye(V.n_cols, V.n_cols) - V.t() * V, "fro");
+        std::cout << "difference to unitarity U: " << diff_to_unitary_U << std::endl
+                  << "                        V: " << diff_to_unitary_V << std::endl;
+
+        if(diff_to_unitary_U > 1e-3 || diff_to_unitary_V > 1e-3) {
+            std::cerr << "  In ATRG::svd: isometry not unitary!" << std::endl;
+            std::cout << "U:" << std::endl << U;
+            std::cout << "V:" << std::endl << V;
+            throw 0;
+        }
+#endif
+
+        if(cutoff > 0) {
+            U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+            V.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
+            S.for_each([&S, &cutoff](auto &element) {if(std::abs(element / S(0)) < cutoff){element = 0;}});
+        }
 
         // sum of all squared singular values - sum of kept squared singular vectors
         //      / sum of all squared singular vectors
@@ -222,12 +281,13 @@ namespace ATRG {
     }
 
 
+
     /**
      * compute SVD of a sparse matrix by means of the eigenvalues of Q or with armadillos own svd function
      * return the squared error
      */
     template <typename T>
-    inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
+    inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const bool use_redsvd,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         if(!arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows))) {
@@ -249,84 +309,32 @@ namespace ATRG {
     }
 
 
-    /**
-     * compute SVD of a dense matrix by means of the eigenvalues of Q or with armadillos own svd function
-     * return the squared error
-     */
-    template <typename T>
-    inline T svd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D,
-                 const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
-                 const double SV_uncertainty = 1e-3, const double cutoff = -1e-14, const bool only_U = false) {
-        if(!arma::svd(U, S, V, Q)) {
-            std::cerr << "  could not perform SVD!" << std::endl;
-
-            std::cout << "  trying redsvd:" << std::endl;
-            return redsvd(Q, U, V, S, D);
-        }
-
-        // compute the error from the singular values
-        arma::Col<T> cumulative_sum = arma::cumsum(S * S);
-
-        if(SV_uncertainty >= 0) {
-            stabilize_SV(S, U, V, D, SV_uncertainty, U_reference, only_U);
-        }
-
-        if(D <= S.n_elem) {
-            S.resize(D);
-            U.resize(U.n_rows, S.n_elem);
-            V.resize(V.n_rows, S.n_elem);
-        } else {
-            std::cerr << "  In ATRG::svd: could not cut S (" << S.n_elem << " elements) to " << D << " elements!" << std::endl;
-        }
-
-#ifdef DEBUG
-        double diff_to_unitary_U = arma::norm(arma::eye(U.n_cols, U.n_cols) - U.t() * U, "fro");
-        double diff_to_unitary_V = arma::norm(arma::eye(V.n_cols, V.n_cols) - V.t() * V, "fro");
-        std::cout << "difference to unitarity U: " << diff_to_unitary_U << std::endl
-                  << "                        V: " << diff_to_unitary_V << std::endl;
-
-        if(diff_to_unitary_U > 1e-10 || diff_to_unitary_V > 1e-10) {
-            std::cerr << "  In ATRG::svd: isometry not unitary!" << std::endl;
-            throw 0;
-        }
-#endif
-
-        if(cutoff > 0) {
-            U.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
-            V.for_each([&cutoff](auto &element) {if(std::abs(element) < cutoff){element = 0;}});
-            S.for_each([&S, &cutoff](auto &element) {if(std::abs(element / S(0)) < cutoff){element = 0;}});
-        }
-
-        // sum of all squared singular values - sum of kept squared singular vectors
-        //      / sum of all squared singular vectors
-        return (cumulative_sum[cumulative_sum.n_elem - 1] - cumulative_sum[D - 1])
-                / cumulative_sum[cumulative_sum.n_elem - 1];
-    }
-
 
     template <class MatrixType, typename T>
-    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, const uint D,
+    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, const uint D, const bool use_redsvd = false,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         arma::Col<T> S;
 
-        return svd(Q, U, V, S, D, U_reference, SV_uncertainty, cutoff);
+        return svd(Q, U, V, S, D, use_redsvd, U_reference, SV_uncertainty, cutoff);
     }
 
 
+
     template <class MatrixType, typename T>
-    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S,
+    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const bool use_redsvd = false,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
-        return svd(Q, U, V, S, std::min(Q.n_cols, Q.n_rows), U_reference, SV_uncertainty, cutoff);
+        return svd(Q, U, V, S, std::min(Q.n_cols, Q.n_rows), use_redsvd, U_reference, SV_uncertainty, cutoff);
     }
 
 
+
     template <class MatrixType, typename T>
-    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V,
+    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Mat<T> &V, const bool use_redsvd = false,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
-        return svd(Q, U, V, std::min(Q.n_cols, Q.n_rows), U_reference, SV_uncertainty, cutoff);
+        return svd(Q, U, V, std::min(Q.n_cols, Q.n_rows), use_redsvd, U_reference, SV_uncertainty, cutoff);
     }
 
 
@@ -335,20 +343,20 @@ namespace ATRG {
      * SVD's where only the U gets computed. This allows to split Q into U and U.t() * Q
      */
     template <class MatrixType, typename T>
-    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Col<T> &S, const uint D,
+    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Col<T> &S, const uint D, const bool use_redsvd = false,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
         arma::Mat<T> V;
 
-        return svd(Q, U, V, S, D, U_reference, SV_uncertainty, cutoff, true);
+        return svd(Q, U, V, S, D, use_redsvd, U_reference, SV_uncertainty, cutoff, true);
     }
 
 
     template <class MatrixType, typename T>
-    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Col<T> &S,
+    inline T svd(const MatrixType &Q, arma::Mat<T> &U, arma::Col<T> &S, const bool use_redsvd = false,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
                  const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
-        return svd(Q, U, S, std::min(Q.n_cols, Q.n_rows), U_reference, SV_uncertainty, cutoff);
+        return svd(Q, U, S, std::min(Q.n_cols, Q.n_rows), use_redsvd, U_reference, SV_uncertainty, cutoff);
     }
 
 

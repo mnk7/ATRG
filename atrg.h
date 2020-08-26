@@ -45,7 +45,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, U_B_reference, -1);
+        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, true, U_B_reference, -1);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -58,7 +58,7 @@ namespace ATRG {
 
 
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, S_C, D_truncated * D_truncated, U_B);
+        error += svd(C_flat, U_C, S_C, D_truncated * D_truncated, true, U_B);
 
         uint nu_dimension = U_C.n_cols;
 
@@ -79,7 +79,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, U_M_reference, -1);
+        error += svd(B_flat, U_M, S, D_truncated, true, U_M_reference, -1);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -244,7 +244,7 @@ namespace ATRG {
         // U should be an isometry
         // V.t() * U = 1
         // order in U/V: {index_A, index_X}, eta
-        error += svd(P, U_P, S, D_truncated, U_P_reference, -1);
+        error += svd(P, U_P, S, D_truncated, true, U_P_reference, -1);
 
         U_P_reference = U_P;
     }
@@ -354,7 +354,7 @@ namespace ATRG {
             arma::Mat<T> N = U_P.t() * U_Q;
             arma::Col<T> S;
             arma::Mat<T> U_N;
-            error += svd(N, U_N, S, U_N_reference[index], -1);
+            error += svd(N, U_N, S, true, U_N_reference[index], -1);
 
             // compute the index in E_i, F_i
             uint i = index;
@@ -420,7 +420,7 @@ namespace ATRG {
         G.flatten(forward_indices, {G.get_order() - 1}, flat_G);
 
         arma::Col<T> S_G;
-        error += svd(flat_G, U_G, S_G, U_G_reference, -1);
+        error += svd(flat_G, U_G, S_G, true, U_G_reference, -1);
 
 
         arma::Mat<T> flat_H;
@@ -430,7 +430,7 @@ namespace ATRG {
         H.flatten(backward_indices_in_H, {blocking_direction}, flat_H);
 
         arma::Col<T> S_H;
-        error += svd(flat_H, U_H, S_H, U_G);
+        error += svd(flat_H, U_H, S_H, true, U_G);
 
 
         flat_G = flat_G.t() * U_G;
@@ -440,7 +440,7 @@ namespace ATRG {
         flat_G = flat_G.t() * flat_H;
         flat_H.set_size(0);
         arma::Col<T> S_K;
-        error += svd(flat_G, U_K, V_K, S_K, U_G, -1);
+        error += svd(flat_G, U_K, V_K, S_K, true, U_G, -1);
 
         // update the alpha bond
         forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1] = S_K.n_elem;
@@ -626,7 +626,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated);
+        error += svd(flat, U, V, S, D_truncated, true);
 
         // multiply U.t() at flat -> {alpha, backward_indices}
         // use the transpose instead to make the inflating cheaper
@@ -904,7 +904,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated);
+        error += svd(flat, U, V, S, D_truncated, true);
 
         // multiply U.t() at flat -> {alpha, backward_indices}
         // use the transpose instead to make the inflating cheaper

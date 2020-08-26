@@ -133,7 +133,7 @@ void test_svds(ATRG::Tensor<double> &tensor) {
     std::cout << "    redsvd:" << std::endl;
     starttime_svd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "    relative truncation error: " << std::sqrt(ATRG::redsvd(flat, U, V, S, std::min(flat.n_cols, flat.n_rows))) << std::endl;
+    std::cout << "    relative truncation error: " << std::sqrt(ATRG::svd(flat, U, V, S, std::min(flat.n_cols, flat.n_rows), true)) << std::endl;
 
     std::cout << "    Runtime: " <<
                  std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -405,8 +405,8 @@ int main(int argc, char **argv) {
     std::ofstream sweep_file;
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
-    uint D = 15;
-    std::vector<uint> blockings = {5, 5};
+    uint D = 10;
+    std::vector<uint> blockings = {1, 1};
     double delta = 5e-3;
 
     for(double T = 0.1; T <= 4.05; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {

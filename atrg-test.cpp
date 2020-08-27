@@ -357,8 +357,13 @@ int main(int argc, char **argv) {
     auto starttime = std::chrono::high_resolution_clock::now();
     //==============================================================================================
 
+    omp_set_num_threads(8);
+    openblas_set_num_threads(8);
+
+#ifdef DEBUG
     omp_set_num_threads(1);
     openblas_set_num_threads(1);
+#endif
 
     std::random_device r;
     auto seed = r();

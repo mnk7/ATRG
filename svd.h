@@ -37,6 +37,19 @@ namespace ATRG {
         }
 
 
+        // rotate first vector
+        if(no_reference) {
+            uint max_index = arma::index_max(arma::abs(U.col(0)));
+            if(U(max_index, 0) < 0) {
+                U.col(0) *= -1;
+                V.col(0) *= -1;
+            }
+        } else if(arma::dot(U_reference.col(0), U.col(0)) < 0) {
+            U.col(0) *= -1;
+            V.col(0) *= -1;
+        }
+
+
         for(uint i = 1; i < S.n_elem; ++i) {
             auto difference = std::abs(1.0 - (S[i] / S[current_SV_position]));
 
@@ -63,7 +76,14 @@ namespace ATRG {
                     current_SV_position = i;
                 }
 
-                if(!no_reference && arma::dot(U_reference.col(i), U.col(i)) < 0) {
+                // rotate this
+                if(no_reference) {
+                    uint max_index = arma::index_max(arma::abs(U.col(i)));
+                    if(U(max_index, i) < 0) {
+                        U.col(i) *= -1;
+                        V.col(i) *= -1;
+                    }
+                } else if(arma::dot(U_reference.col(i), U.col(i)) < 0) {
                     U.col(i) *= -1;
                     V.col(i) *= -1;
                 }
@@ -80,8 +100,9 @@ namespace ATRG {
 
                 if(no_reference) {
                     // sort the SV by their largest entries
-                    for(uint j = 0; j < degenerate_Us.n_cols - 1; ++j) {
+                    for(uint j = 0; j < degenerate_Us.n_cols; ++j) {
                         arma::uvec order_j = arma::stable_sort_index(arma::abs(degenerate_Us.col(j)), "descend");
+                        uint current_j = j;
 
                         for(uint k = j + 1; k < degenerate_Us.n_cols; ++k) {
                             // sort by the position of the largest entry in the vector:
@@ -90,10 +111,9 @@ namespace ATRG {
                             for(uint l = 0; l < order_j.n_elem; ++l) {
                                 // the extremum of k is at a lower index -> swap
                                 if(order_j(l) > order_k(l)) {
-                                    degenerate_Us.swap_cols(j, k);
-                                    degenerate_Vs.swap_cols(j, k);
-                                    S.swap_rows(current_SV_position + j, current_SV_position + k);
+                                    current_j = k;
                                     order_j = order_k;
+
                                     break;
                                 } else if(order_j(l) < order_k(l)) {
                                     // the extremum of k is further back -> don't swap
@@ -101,20 +121,32 @@ namespace ATRG {
                                 }
                             }
                         }
+
+                        if(current_j != j) {
+                            degenerate_Us.swap_cols(j, current_j);
+                            degenerate_Vs.swap_cols(j, current_j);
+                            S.swap_rows(current_SV_position + j, current_SV_position + current_j);
+                        }
+
+                        // try to turn all vectors to the forward quadrant
+                        if(U(order_j(0), j) < 0) {
+                            degenerate_Us.col(j) *= -1;
+                            degenerate_Vs.col(j) *= -1;
+                        }
                     }
                 } else {
                     if(only_U) {
                         std::cout << "swap only U!" << std::endl;
                         // cycle through all SV in U_reference and compute U(j) * U(k) -> find best match
                         // then rotate the SV so that U is roughly aligned with U_reference
-                        for(uint j = 0; j < degenerate_Us.n_cols; ++j) {
+                        for(uint j = 0; j < std::min(degenerate_Us.n_cols, U_reference.n_cols - current_SV_position); ++j) {
                             std::vector<T> match(degenerate_Us.n_cols - j);
                             double match_norm = 0;
                             uint best_match = j;
                             double best_match_value = 0;
 
                             for(uint k = j; k < degenerate_Us.n_cols; ++k) {
-                                match[k - j] = arma::dot(U_reference.col(j), degenerate_Us.col(k));
+                                match[k - j] = arma::dot(U_reference.col(j + current_SV_position), degenerate_Us.col(k));
                                 match_norm += match[k - j] * match[k - j];
 
                                 if(std::abs(match[k - j]) > std::abs(best_match_value)) {
@@ -123,6 +155,7 @@ namespace ATRG {
                                 }
                             }
                             match_norm = std::sqrt(match_norm);
+
 
                             arma::Col<T> new_U_col(degenerate_Us.n_rows, arma::fill::zeros);
                             for(uint k = j; k < degenerate_Us.n_cols; ++k) {
@@ -152,13 +185,13 @@ namespace ATRG {
                         std::cout << "swap U and V" << std::endl;
                         // cycle through all SV in U_reference and compute U(j) * U(k) -> find best match
                         // then swap the SV
-                        for(uint j = 0; j < degenerate_Us.n_cols; ++j) {
+                        for(uint j = 0; j < std::min(degenerate_Us.n_cols, U_reference.n_cols - current_SV_position); ++j) {
                             std::vector<T> match(degenerate_Us.n_cols - j);
                             uint best_match = j;
                             double best_match_value = 0;
 
                             for(uint k = j; k < degenerate_Us.n_cols; ++k) {
-                                match[k - j] = arma::dot(U_reference.col(j), degenerate_Us.col(k));
+                                match[k - j] = arma::dot(U_reference.col(j + current_SV_position), degenerate_Us.col(k));
 
                                 if(std::abs(match[k - j]) > std::abs(best_match_value)) {
                                     best_match = k;
@@ -289,7 +322,7 @@ namespace ATRG {
     template <typename T>
     inline T svd(const arma::SpMat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D, const bool use_redsvd,
                  const arma::Mat<T> &U_reference = arma::zeros<arma::Mat<T>>(0),
-                 const double SV_uncertainty = 1e-3, const double cutoff = -1e-14) {
+                 const double SV_uncertainty = 1e-3, const double cutoff = -1e-14, const bool only_U = false) {
         if(!arma::svds(U, S, V, Q, std::min(Q.n_cols, Q.n_rows))) {
             std::cerr << "  could not perform sparse SVD!" << std::endl;
             throw 0;

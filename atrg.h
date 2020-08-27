@@ -45,7 +45,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, true, U_B_reference, -1);
+        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, true, U_B_reference);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -79,7 +79,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, true, U_M_reference, -1);
+        error += svd(B_flat, U_M, S, D_truncated, true, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -244,7 +244,7 @@ namespace ATRG {
         // U should be an isometry
         // V.t() * U = 1
         // order in U/V: {index_A, index_X}, eta
-        error += svd(P, U_P, S, D_truncated, true, U_P_reference, -1);
+        error += svd(P, U_P, S, D_truncated, true, U_P_reference);
 
         U_P_reference = U_P;
     }
@@ -354,7 +354,7 @@ namespace ATRG {
             arma::Mat<T> N = U_P.t() * U_Q;
             arma::Col<T> S;
             arma::Mat<T> U_N;
-            error += svd(N, U_N, S, true, U_N_reference[index], -1);
+            error += svd(N, U_N, S, true, U_N_reference[index]);
 
             // compute the index in E_i, F_i
             uint i = index;
@@ -413,14 +413,14 @@ namespace ATRG {
     template <typename T>
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
-                       arma::Mat<T> &U_G_reference,
+                       arma::Mat<T> &U_G_reference, arma::Mat<T> &U_K_reference,
                        arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K, arma::Mat<T> &V_K) {
         arma::Mat<T> flat_G;
         // order in G: all forward indices, contraction direction backward
         G.flatten(forward_indices, {G.get_order() - 1}, flat_G);
 
         arma::Col<T> S_G;
-        error += svd(flat_G, U_G, S_G, true, U_G_reference, -1);
+        error += svd(flat_G, U_G, S_G, true, U_G_reference);
 
 
         arma::Mat<T> flat_H;
@@ -440,7 +440,7 @@ namespace ATRG {
         flat_G = flat_G.t() * flat_H;
         flat_H.set_size(0);
         arma::Col<T> S_K;
-        error += svd(flat_G, U_K, V_K, S_K, true, U_G, -1);
+        error += svd(flat_G, U_K, V_K, S_K, true, U_K_reference);
 
         // update the alpha bond
         forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1] = S_K.n_elem;
@@ -468,6 +468,7 @@ namespace ATRG {
 
 
         U_G_reference = U_G;
+        U_K_reference = U_K;
 
 #ifdef DEBUG
         std::cout << "U_G:" << std::endl << U_G << std::endl;
@@ -482,14 +483,14 @@ namespace ATRG {
     template <typename T>
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
                        const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
-                       arma::Mat<T> &U_G_reference) {
+                       arma::Mat<T> &U_G_reference, arma::Mat<T> &U_K_reference) {
         arma::Mat<T> U_G;
         arma::Mat<T> U_H;
         arma::Mat<T> U_K;
         arma::Mat<T> V_K;
 
         contract_bond(G, H, A, B, C, D, blocking_direction, error,
-                      forward_indices, forward_dimensions_and_alpha, U_G_reference, U_G, U_H, U_K, V_K);
+                      forward_indices, forward_dimensions_and_alpha, U_G_reference, U_K_reference, U_G, U_H, U_K, V_K);
     }
 
 
@@ -699,6 +700,7 @@ namespace ATRG {
         std::vector<arma::Mat<T>> U_P_reference(lattice_dimensions.size(), arma::zeros<arma::Mat<T>>(0));
         std::vector<arma::Mat<T>> U_N_reference(lattice_dimensions.size(), arma::zeros<arma::Mat<T>>(0));
         arma::Mat<T> U_G_reference = arma::zeros<arma::Mat<T>>(0);
+        arma::Mat<T> U_K_reference = arma::zeros<arma::Mat<T>>(0);
 
 
         while(!finished) {
@@ -812,7 +814,7 @@ namespace ATRG {
             // make new A, B, C, D from G and H
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
-                          U_G_reference);
+                          U_G_reference, U_K_reference);
         }
 
         std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
@@ -982,6 +984,7 @@ namespace ATRG {
         std::vector<arma::Mat<T>> U_P_reference(lattice_dimensions.size(), arma::zeros<arma::Mat<T>>(0));
         std::vector<arma::Mat<T>> U_N_reference(lattice_dimensions.size(), arma::zeros<arma::Mat<T>>(0));
         arma::Mat<T> U_G_reference = arma::zeros<arma::Mat<T>>(0);
+        arma::Mat<T> U_K_reference = arma::zeros<arma::Mat<T>>(0);
 
 
         while(!finished) {
@@ -1158,7 +1161,7 @@ namespace ATRG {
             arma::Mat<T> V_K;
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
                           forward_indices, forward_dimensions_and_alpha,
-                          U_G_reference,
+                          U_G_reference, U_K_reference,
                           U_G, U_H, U_K, V_K);
 
             contract_impure_bond(G_pure, H_impure_t, B_impure_t, C_impure_b, old_blocking_direction,

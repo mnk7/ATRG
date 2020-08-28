@@ -129,7 +129,7 @@ namespace ATRG {
                         }
 
                         // try to turn all vectors to the forward quadrant
-                        if(U(order_j(0), j) < 0) {
+                        if(degenerate_Us(order_j(0), j) < 0) {
                             degenerate_Us.col(j) *= -1;
                             degenerate_Vs.col(j) *= -1;
                         }
@@ -272,7 +272,7 @@ namespace ATRG {
 
         // cut off singular values that are 0
         for(uint i = new_size; i > 0; --i) {
-            if(arma::norm(U.col(i - 1)) > 0.8) {
+            if(arma::norm(U.col(i - 1)) > 0.1) {
                 new_size = i;
                 break;
             }

@@ -410,8 +410,8 @@ int main(int argc, char **argv) {
     std::ofstream sweep_file;
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
-    uint D = 2;
-    std::vector<uint> blockings = {1, 1};
+    uint D = 10;
+    std::vector<uint> blockings = {5, 5};
     double delta = 5e-3;
 
     for(double T = 0.1; T <= 4.05; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {

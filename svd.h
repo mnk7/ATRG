@@ -28,7 +28,7 @@ namespace ATRG {
 
         if(U_reference_ext.n_elem > 0) {
             if(U_reference_ext.n_rows != U.n_rows) {
-                std::cerr << "  In ATRG::stabilize_SV: reference has wrong size!" << std::endl;
+                //std::cerr << "  In ATRG::stabilize_SV: reference has wrong size!" << std::endl;
             } else {
                 U_reference = U_reference_ext;
                 no_reference = false;
@@ -136,7 +136,6 @@ namespace ATRG {
                     }
                 } else {
                     if(only_U) {
-                        std::cout << "swap only U!" << std::endl;
                         // cycle through all SV in U_reference and compute U(j) * U(k) -> find best match
                         // then rotate the SV so that U is roughly aligned with U_reference
                         for(uint j = 0; j < std::min(degenerate_Us.n_cols, U_reference.n_cols - current_SV_position); ++j) {
@@ -182,7 +181,6 @@ namespace ATRG {
                             }
                         }
                     } else {
-                        std::cout << "swap U and V" << std::endl;
                         // cycle through all SV in U_reference and compute U(j) * U(k) -> find best match
                         // then swap the SV
                         for(uint j = 0; j < std::min(degenerate_Us.n_cols, U_reference.n_cols - current_SV_position); ++j) {
@@ -228,7 +226,7 @@ namespace ATRG {
     template <typename T>
     inline void redsvd(const arma::Mat<T> &Q, arma::Mat<T> &U, arma::Mat<T> &V, arma::Col<T> &S, const uint D) {
         arma::Mat<T> Q_copy = Q;
-        auto Q_eigen = Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>(Q_copy.memptr(), Q_copy.n_rows, Q_copy.n_cols);
+        auto Q_eigen = Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>(Q_copy.memptr(), Q_copy.n_rows, Q_copy.n_cols); // @suppress("Function cannot be resolved") // @suppress("Symbol is not resolved")
 
         RedSVD::RedSVD<decltype(Q_eigen)> redsvd;
         redsvd.compute(Q_eigen, 2 * D);

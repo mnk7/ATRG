@@ -45,7 +45,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, S_B, D_truncated * D_truncated, true, U_B_reference);
+        error += svd(B_flat, U_B, S_B, true, U_B_reference);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -58,7 +58,7 @@ namespace ATRG {
 
 
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, S_C, D_truncated * D_truncated, true, U_B);
+        error += svd(C_flat, U_C, S_C, true, U_B);
 
         uint nu_dimension = U_C.n_cols;
 
@@ -79,7 +79,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, true, U_M_reference);
+        error += svd(B_flat, U_M, S, D_truncated, false, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -472,7 +472,9 @@ namespace ATRG {
 
 #ifdef DEBUG
         std::cout << "U_G:" << std::endl << U_G << std::endl;
+        std::cout << "S_G:" << std::endl << S_G << std::endl;
         std::cout << "U_H:" << std::endl << U_H << std::endl;
+        std::cout << "S_H:" << std::endl << S_H << std::endl;
         std::cout << "U_K:" << std::endl << U_K << std::endl;
         std::cout << "V_K:" << std::endl << V_K << std::endl;
 #endif
@@ -567,7 +569,6 @@ namespace ATRG {
             }
 
             result = logScalefactors / volume;
-            result = 20;
         }
 
         return result;
@@ -1181,7 +1182,6 @@ namespace ATRG {
             std::cerr << "    the last step went wrong; use only scaling factor..." << std::endl;
 
             result = Scalefactors;
-            result = 20;
 
             // add the error (Scalefactors / (Scalefactors * last_result))^2
             error += 1.0 / (last_result * last_result);

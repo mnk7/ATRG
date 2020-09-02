@@ -410,9 +410,10 @@ int main(int argc, char **argv) {
     std::ofstream sweep_file;
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
-    uint D = 16;
+    uint D = 2;
     std::vector<uint> blockings = {1, 1};
     double delta = 5e-3;
+    bool use_redsvd = false;
 
     for(double T = 0.1; T <= 4.005; T += (T < 2 || T > 2.6) ? 0.1 : 0.02) {
         std::cout << "computing at T = " << T << std::endl;
@@ -421,13 +422,13 @@ int main(int argc, char **argv) {
         ATRG::Tensor<double> impurity;
 
         Ising_Tensor(tensor, impurity, T, 2);
-        auto [E, error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, blockings, D, ATRG::t_blocking);
+        auto [E, error_E, logZ] = ATRG::compute_single_impurity(tensor, impurity, blockings, D, use_redsvd, ATRG::alt_blocking);
 
         Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T + delta), 2);
-        auto [logZ_p, error_logZ_p] = ATRG::compute_logZ(tensor, blockings, D, ATRG::t_blocking);
+        auto [logZ_p, error_logZ_p] = ATRG::compute_logZ(tensor, blockings, D, use_redsvd, ATRG::alt_blocking);
 
         Ising_Tensor(tensor, impurity, 1.0 / (1.0 / T - delta), 2);
-        auto [logZ_m, error_logZ_m] = ATRG::compute_logZ(tensor, blockings, D, ATRG::t_blocking);
+        auto [logZ_m, error_logZ_m] = ATRG::compute_logZ(tensor, blockings, D, use_redsvd, ATRG::alt_blocking);
 
         auto E_fd = (logZ_p - logZ_m) / (2 * delta);
         auto susz_fd = 1.0 / (T * T) * (logZ_m - 2.0 * logZ + logZ_p) / (delta * delta);

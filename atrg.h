@@ -23,6 +23,7 @@ double get_usage() {
 namespace ATRG {
 
     enum BlockingMode {
+    	alt_blocking,
         t_blocking,
         s_blocking
     };
@@ -31,7 +32,7 @@ namespace ATRG {
 
     template <typename T>
     void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
-                    const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
+                    const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated, const bool use_redsvd,
                     arma::Mat<T> &U_B_reference, arma::Mat<T> &U_M_reference,
                     arma::Mat<T> &U_B, arma::Mat<T> &U_C, arma::Mat<T> &U_M) {
         arma::Mat<T> B_flat;
@@ -45,7 +46,7 @@ namespace ATRG {
         C.flatten(not_blocked_indices, {blocking_direction, C.get_order() - 1}, C_flat);
 
         arma::Col<T> S_B;
-        error += svd(B_flat, U_B, S_B, true, U_B_reference);
+        error += svd(B_flat, U_B, S_B, use_redsvd, U_B_reference);
 
         uint mu_dimension = U_B.n_cols;
 
@@ -58,7 +59,7 @@ namespace ATRG {
 
 
         arma::Col<T> S_C;
-        error += svd(C_flat, U_C, S_C, true, U_B);
+        error += svd(C_flat, U_C, S_C, use_redsvd, U_B);
 
         uint nu_dimension = U_C.n_cols;
 
@@ -79,7 +80,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, false, U_M_reference);
+        error += svd(B_flat, U_M, S, D_truncated, use_redsvd, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -124,7 +125,7 @@ namespace ATRG {
 
     template <typename T>
     void swap_bonds(ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
-                    const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
+                    const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated, const bool use_redsvd,
                     arma::Mat<T> &U_B_reference, arma::Mat<T> &U_M_reference) {
 
         arma::Mat<T> U_B;
@@ -132,7 +133,7 @@ namespace ATRG {
         arma::Mat<T> U_M;
 
         swap_bonds(B, C, X, Y, blocking_direction, error,
-                   forward_indices, forward_dimensions_and_alpha, D_truncated,
+                   forward_indices, forward_dimensions_and_alpha, D_truncated, use_redsvd,
                    U_B_reference, U_M_reference,
                    U_B, U_C, U_M);
     }
@@ -205,7 +206,7 @@ namespace ATRG {
      */
     template <typename T>
     void isometry(ATRG::Tensor<T> &A, ATRG::Tensor<T> &X, arma::Mat<T> &U_P, const uint index, T &error,
-                  const std::vector<uint> &psi_indices, const uint D_truncated,
+                  const std::vector<uint> &psi_indices, const uint D_truncated, const bool use_redsvd,
                   arma::Mat<T> &U_P_reference) {
         arma::Mat<T> L_mat;
         // single out "index" and alpha
@@ -244,7 +245,7 @@ namespace ATRG {
         // U should be an isometry
         // V.t() * U = 1
         // order in U/V: {index_A, index_X}, eta
-        error += svd(P, U_P, S, D_truncated, true, U_P_reference);
+        error += svd(P, U_P, S, D_truncated, use_redsvd, U_P_reference);
 
         U_P_reference = U_P;
     }
@@ -320,7 +321,8 @@ namespace ATRG {
 
     template <typename T>
     void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, const uint blocking_direction, T &error,
-                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha,
+					   const uint D_truncated, const bool use_redsvd,
                        std::vector<arma::Mat<T>> &U_P_reference, std::vector<arma::Mat<T>> &U_N_reference,
                        std::vector<arma::Mat<T>> &E_i, std::vector<arma::Mat<T>> &F_i) {
         /*
@@ -343,18 +345,18 @@ namespace ATRG {
 
             // compute an isometry from A and X
             arma::Mat<T> U_P;
-            isometry(A, X, U_P, index, error, psi_indices, D_truncated, U_P_reference[index]);
+            isometry(A, X, U_P, index, error, psi_indices, D_truncated, use_redsvd, U_P_reference[index]);
 
             // repeat for Y and D
             arma::Mat<T> U_Q;
-            isometry(Y, D, U_Q, index, error, psi_indices, D_truncated, U_P_reference[index]);
+            isometry(Y, D, U_Q, index, error, psi_indices, D_truncated, use_redsvd, U_P_reference[index]);
 
             // insert the isometries U/V between A-X and Y-D: U_P_T - U_P = U_Q - U_Q_T
             // and remodel U_P = U_Q to get one instead of two bonds
             arma::Mat<T> N = U_P.t() * U_Q;
             arma::Col<T> S;
             arma::Mat<T> U_N;
-            error += svd(N, U_N, S, true, U_N_reference[index]);
+            error += svd(N, U_N, S, use_redsvd, U_N_reference[index]);
 
             // compute the index in E_i, F_i
             uint i = index;
@@ -388,13 +390,15 @@ namespace ATRG {
 
     template <typename T>
     void compute_squeezers(ATRG::Tensor<T> &A, ATRG::Tensor<T> &D, ATRG::Tensor<T> &X, ATRG::Tensor<T> &Y, ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, const uint blocking_direction, T &error,
-                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha, const uint D_truncated,
+                       const std::vector<uint> &forward_indices, const std::vector<uint> &backward_indices, std::vector<uint> &forward_dimensions_and_alpha,
+					   const uint D_truncated, const bool use_redsvd,
                        std::vector<arma::Mat<T>> &U_P_reference, std::vector<arma::Mat<T>> &U_N_reference) {
         std::vector<arma::Mat<T>> E_i;
         std::vector<arma::Mat<T>> F_i;
 
         compute_squeezers(A, D, X, Y, blocking_direction, error,
-                         forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                         forward_indices, backward_indices, forward_dimensions_and_alpha,
+						 D_truncated, use_redsvd,
                          U_P_reference, U_N_reference, E_i, F_i);
 
         // squeeze the bonds to make G and H
@@ -412,7 +416,7 @@ namespace ATRG {
 
     template <typename T>
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
-                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
+                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const bool use_redsvd,
                        arma::Mat<T> &U_G_reference, arma::Mat<T> &U_K_reference,
                        arma::Mat<T> &U_G, arma::Mat<T> &U_H, arma::Mat<T> &U_K, arma::Mat<T> &V_K) {
         arma::Mat<T> flat_G;
@@ -420,7 +424,7 @@ namespace ATRG {
         G.flatten(forward_indices, {G.get_order() - 1}, flat_G);
 
         arma::Col<T> S_G;
-        error += svd(flat_G, U_G, S_G, true, U_G_reference);
+        error += svd(flat_G, U_G, S_G, use_redsvd, U_G_reference);
 
 
         arma::Mat<T> flat_H;
@@ -430,7 +434,7 @@ namespace ATRG {
         H.flatten(backward_indices_in_H, {blocking_direction}, flat_H);
 
         arma::Col<T> S_H;
-        error += svd(flat_H, U_H, S_H, true, U_G);
+        error += svd(flat_H, U_H, S_H, use_redsvd, U_G);
 
 
         flat_G = flat_G.t() * U_G;
@@ -440,7 +444,7 @@ namespace ATRG {
         flat_G = flat_G.t() * flat_H;
         flat_H.set_size(0);
         arma::Col<T> S_K;
-        error += svd(flat_G, U_K, V_K, S_K, true, U_K_reference);
+        error += svd(flat_G, U_K, V_K, S_K, use_redsvd, U_K_reference);
 
         // update the alpha bond
         forward_dimensions_and_alpha[forward_dimensions_and_alpha.size() - 1] = S_K.n_elem;
@@ -484,7 +488,7 @@ namespace ATRG {
 
     template <typename T>
     void contract_bond(ATRG::Tensor<T> &G, ATRG::Tensor<T> &H, ATRG::Tensor<T> &A, ATRG::Tensor<T> &B, ATRG::Tensor<T> &C, ATRG::Tensor<T> &D, const uint blocking_direction, T &error,
-                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha,
+                       const std::vector<uint> &forward_indices, std::vector<uint> &forward_dimensions_and_alpha, const bool use_redsvd,
                        arma::Mat<T> &U_G_reference, arma::Mat<T> &U_K_reference) {
         arma::Mat<T> U_G;
         arma::Mat<T> U_H;
@@ -492,7 +496,7 @@ namespace ATRG {
         arma::Mat<T> V_K;
 
         contract_bond(G, H, A, B, C, D, blocking_direction, error,
-                      forward_indices, forward_dimensions_and_alpha, U_G_reference, U_K_reference, U_G, U_H, U_K, V_K);
+                      forward_indices, forward_dimensions_and_alpha, use_redsvd, U_G_reference, U_K_reference, U_G, U_H, U_K, V_K);
     }
 
 
@@ -581,8 +585,8 @@ namespace ATRG {
      * returns log(Z) and an error estimate
      */
     template <typename T>
-    std::tuple<T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated,
-                                     const BlockingMode blocking_mode = t_blocking) {
+    std::tuple<T, T> compute_logZ(ATRG::Tensor<T> &tensor, const std::vector<uint> lattice_dimensions, const uint D_truncated, const bool use_redsvd,
+                                     const BlockingMode blocking_mode = alt_blocking) {
         std::cout << "  computing log(Z):" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
@@ -629,7 +633,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated, true);
+        error += svd(flat, U, V, S, D_truncated, use_redsvd);
 
         arma::Mat<T> SVp = ATRG::U_times_S(V, S);
         arma::Mat<T> US = ATRG::U_times_S(U, S);
@@ -711,7 +715,7 @@ namespace ATRG {
             // swap the bonds, the not blocked modes between B and C and gain the tensors X and Y:
             // !!! after this step only forward_dimensions_and_alpha holds the correct bond sizes !!!
             swap_bonds(B, C, X, Y, blocking_direction, error,
-                       forward_indices, forward_dimensions_and_alpha, D_truncated,
+                       forward_indices, forward_dimensions_and_alpha, D_truncated, use_redsvd,
                        U_B_reference, U_M_reference);
 
 #ifdef DEBUG
@@ -731,7 +735,7 @@ namespace ATRG {
 
             // contract the double bonds of A, X in forward and B, D in backward direction
             compute_squeezers(A, D, X, Y, G, H, blocking_direction, error,
-                              forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                              forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated, use_redsvd,
                               U_P_reference, U_N_reference);
 
 
@@ -786,35 +790,55 @@ namespace ATRG {
                 }
 
                 break;
+            case t_blocking:
+				if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+					if(blocking_direction == 0) {
+						std::cout << "    finished t-blocking..." << std::endl;
+
+						finished = true;
+						continue;
+					} else {
+						std::cout << "    t-blocked direction " << blocking_direction << "...  " <<
+									 std::chrono::duration_cast<std::chrono::milliseconds>(
+										std::chrono::high_resolution_clock::now() - splittime)
+									 .count() / 1e3
+								  << " seconds" << std::endl;
+						splittime = std::chrono::high_resolution_clock::now();
+
+						// block the next direction
+						--blocking_direction;
+
+						std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
+					}
+				}
+				break;
             default:
-                // t-blocking:
-                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
-                    if(blocking_direction == 0) {
-                        std::cout << "    finished t-blocking..." << std::endl;
+                // alt-blocking:
+				if(blocking_direction == 0 && finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+					std::cout << "    finished alt-blocking..." << std::endl;
 
-                        finished = true;
-                        continue;
-                    } else {
-                        std::cout << "    t-blocked direction " << blocking_direction << "...  " <<
-                                     std::chrono::duration_cast<std::chrono::milliseconds>(
-                                        std::chrono::high_resolution_clock::now() - splittime)
-                                     .count() / 1e3
-                                  << " seconds" << std::endl;
-                        splittime = std::chrono::high_resolution_clock::now();
+					finished = true;
+					continue;
+				} else {
+					std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
+								 std::chrono::duration_cast<std::chrono::milliseconds>(
+									std::chrono::high_resolution_clock::now() - splittime)
+								 .count() / 1e3
+							  << " seconds" << std::endl;
+					splittime = std::chrono::high_resolution_clock::now();
 
-                        // block the next direction
-                        --blocking_direction;
+					// block the next direction
+					blocking_direction = (blocking_direction - 1) % lattice_dimensions.size();
 
-                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
-                    }
-                }
+					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
+				}
             }
 
             std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
 
             // make new A, B, C, D from G and H
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
-                          forward_indices, forward_dimensions_and_alpha,
+                          forward_indices, forward_dimensions_and_alpha, use_redsvd,
                           U_G_reference, U_K_reference);
         }
 
@@ -840,8 +864,8 @@ namespace ATRG {
      */
     template <typename T>
     std::tuple<T, T, T> compute_single_impurity(ATRG::Tensor<T> &tensor, ATRG::Tensor<T> &impurity,
-                                                const std::vector<uint> lattice_dimensions, const uint D_truncated,
-                                                const BlockingMode blocking_mode = t_blocking) {
+                                                const std::vector<uint> lattice_dimensions, const uint D_truncated, const bool use_redsvd,
+                                                const BlockingMode blocking_mode = alt_blocking) {
         std::cout << "  computing log(Z) with one impurity:" << std::endl;
         auto starttime = std::chrono::high_resolution_clock::now();
         auto splittime = starttime;
@@ -894,7 +918,7 @@ namespace ATRG {
         arma::Mat<T> U;
         arma::Mat<T> V;
         arma::Col<T> S;
-        error += svd(flat, U, V, S, D_truncated, true);
+        error += svd(flat, U, V, S, D_truncated, use_redsvd);
 
         arma::Mat<T> SVp = ATRG::U_times_S(V, S);
         arma::Mat<T> US = ATRG::U_times_S(U, S);
@@ -1002,7 +1026,7 @@ namespace ATRG {
             arma::Mat<T> U_C;
             arma::Mat<T> U_M;
             swap_bonds(B, C, X, Y, blocking_direction, error,
-                       forward_indices, forward_dimensions_and_alpha, D_truncated,
+                       forward_indices, forward_dimensions_and_alpha, D_truncated, use_redsvd,
                        U_B_reference, U_M_reference,
                        U_B, U_C, U_M);
 
@@ -1040,7 +1064,7 @@ namespace ATRG {
             std::vector<arma::Mat<T>> E_i;
             std::vector<arma::Mat<T>> F_i;
             compute_squeezers(A, D, X, Y, blocking_direction, error,
-                          forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated,
+                          forward_indices, backward_indices, forward_dimensions_and_alpha, D_truncated, use_redsvd,
                           U_P_reference, U_N_reference,
                           E_i, F_i);
 
@@ -1125,29 +1149,49 @@ namespace ATRG {
                 }
 
                 break;
-            default:
-                // t-blocking:
-                if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
-                    if(blocking_direction == 0) {
-                        std::cout << "    finished t-blocking..." << std::endl;
+            case t_blocking:
+				if(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+					if(blocking_direction == 0) {
+						std::cout << "    finished t-blocking..." << std::endl;
 
-                        finished = true;
-                        continue;
-                    } else {
-                        std::cout << "    t-blocked direction " << blocking_direction << "...  " <<
-                                     std::chrono::duration_cast<std::chrono::milliseconds>(
-                                        std::chrono::high_resolution_clock::now() - splittime)
-                                     .count() / 1e3
-                                  << " seconds" << std::endl;
-                        splittime = std::chrono::high_resolution_clock::now();
+						finished = true;
+						continue;
+					} else {
+						std::cout << "    t-blocked direction " << blocking_direction << "...  " <<
+									 std::chrono::duration_cast<std::chrono::milliseconds>(
+										std::chrono::high_resolution_clock::now() - splittime)
+									 .count() / 1e3
+								  << " seconds" << std::endl;
+						splittime = std::chrono::high_resolution_clock::now();
 
-                        // block the next direction
-                        --blocking_direction;
+						// block the next direction
+						--blocking_direction;
 
-                        std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
-                    }
-                }
-            }
+						std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
+					}
+				}
+				break;
+			default:
+				// alt-blocking:
+				if(blocking_direction == 0 && finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+					std::cout << "    finished alt-blocking..." << std::endl;
+
+					finished = true;
+					continue;
+				} else {
+					std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
+								 std::chrono::duration_cast<std::chrono::milliseconds>(
+									std::chrono::high_resolution_clock::now() - splittime)
+								 .count() / 1e3
+							  << " seconds" << std::endl;
+					splittime = std::chrono::high_resolution_clock::now();
+
+					// block the next direction
+					blocking_direction = (blocking_direction - 1) % lattice_dimensions.size();
+
+					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
+				}
+			}
 
             last_result = trace(G, H_impure_t) / trace(G, H);
             std::cout << "      result: " << Scalefactors * last_result << std::endl;
@@ -1161,7 +1205,7 @@ namespace ATRG {
             arma::Mat<T> U_K;
             arma::Mat<T> V_K;
             contract_bond(G, H, A, B, C, D, old_blocking_direction, error,
-                          forward_indices, forward_dimensions_and_alpha,
+                          forward_indices, forward_dimensions_and_alpha, use_redsvd,
                           U_G_reference, U_K_reference,
                           U_G, U_H, U_K, V_K);
 

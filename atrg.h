@@ -80,7 +80,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, use_redsvd, U_M_reference);
+        error += svd(B_flat, U_M, S, D_truncated, false, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
@@ -828,7 +828,11 @@ namespace ATRG {
 					splittime = std::chrono::high_resolution_clock::now();
 
 					// block the next direction
-					blocking_direction = (blocking_direction - 1) % lattice_dimensions.size();
+					if(blocking_direction == 0) {
+						blocking_direction = physical_dimension - 1;
+					} else {
+						--blocking_direction;
+					}
 
 					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 				}
@@ -1187,7 +1191,11 @@ namespace ATRG {
 					splittime = std::chrono::high_resolution_clock::now();
 
 					// block the next direction
-					blocking_direction = (blocking_direction - 1) % lattice_dimensions.size();
+					if(blocking_direction == 0) {
+						blocking_direction = physical_dimension - 1;
+					} else {
+						--blocking_direction;
+					}
 
 					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 				}

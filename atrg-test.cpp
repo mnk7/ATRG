@@ -411,7 +411,7 @@ int main(int argc, char **argv) {
     sweep_file.open("Ising_sweeps/Ising_sweep.dat", std::ofstream::out | std::ofstream::trunc);
 
     uint D = 2;
-    std::vector<uint> blockings = {1, 1};
+    std::vector<uint> blockings = {4, 4};
     double delta = 5e-3;
     bool use_redsvd = false;
 

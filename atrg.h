@@ -813,29 +813,39 @@ namespace ATRG {
 				}
 				break;
             default:
-                // alt-blocking:
-				if(blocking_direction == 0 && finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+            	// alt-blocking:
+				bool all_blocked = true;
+				for(decltype(finished_blockings.size()) i = 0; i < finished_blockings.size(); ++i) {
+					if(finished_blockings[i] < lattice_dimensions[i]) {
+						all_blocked = false;
+						break;
+					}
+				}
+
+				if(all_blocked) {
 					std::cout << "    finished alt-blocking..." << std::endl;
 
 					finished = true;
 					continue;
-				} else {
-					std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
-								 std::chrono::duration_cast<std::chrono::milliseconds>(
-									std::chrono::high_resolution_clock::now() - splittime)
-								 .count() / 1e3
-							  << " seconds" << std::endl;
-					splittime = std::chrono::high_resolution_clock::now();
+				}
 
-					// block the next direction
+				std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
+							 std::chrono::duration_cast<std::chrono::milliseconds>(
+								std::chrono::high_resolution_clock::now() - splittime)
+							 .count() / 1e3
+						  << " seconds" << std::endl;
+				splittime = std::chrono::high_resolution_clock::now();
+
+				// block the next direction
+				do {
 					if(blocking_direction == 0) {
 						blocking_direction = physical_dimension - 1;
 					} else {
 						--blocking_direction;
 					}
+				} while(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]);
 
-					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
-				}
+				std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
             }
 
             std::cout << "      estimated result: " << logScalefactors / volume << std::endl;
@@ -1177,28 +1187,38 @@ namespace ATRG {
 				break;
 			default:
 				// alt-blocking:
-				if(blocking_direction == 0 && finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]) {
+				bool all_blocked = true;
+				for(decltype(finished_blockings.size()) i = 0; i < finished_blockings.size(); ++i) {
+					if(finished_blockings[i] < lattice_dimensions[i]) {
+						all_blocked = false;
+						break;
+					}
+				}
+
+				if(all_blocked) {
 					std::cout << "    finished alt-blocking..." << std::endl;
 
 					finished = true;
 					continue;
-				} else {
-					std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
-								 std::chrono::duration_cast<std::chrono::milliseconds>(
-									std::chrono::high_resolution_clock::now() - splittime)
-								 .count() / 1e3
-							  << " seconds" << std::endl;
-					splittime = std::chrono::high_resolution_clock::now();
+				}
 
-					// block the next direction
+				std::cout << "    alt-blocked direction " << blocking_direction << "...  " <<
+							 std::chrono::duration_cast<std::chrono::milliseconds>(
+								std::chrono::high_resolution_clock::now() - splittime)
+							 .count() / 1e3
+						  << " seconds" << std::endl;
+				splittime = std::chrono::high_resolution_clock::now();
+
+				// block the next direction
+				do {
 					if(blocking_direction == 0) {
 						blocking_direction = physical_dimension - 1;
 					} else {
 						--blocking_direction;
 					}
+				} while(finished_blockings[blocking_direction] >= lattice_dimensions[blocking_direction]);
 
-					std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
-				}
+				std::cout << "      memory footprint: " << get_usage() << " GB" << std::endl;
 			}
 
             last_result = trace(G, H_impure_t) / trace(G, H);

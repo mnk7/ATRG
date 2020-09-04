@@ -80,7 +80,7 @@ namespace ATRG {
 
         arma::Col<T> S;
         // B_flat has indices: {alpha, nu} {beta, mu}
-        error += svd(B_flat, U_M, S, D_truncated, false, U_M_reference);
+        error += svd(B_flat, U_M, S, D_truncated, use_redsvd, U_M_reference);
 
         uint truncated_dimension = U_M.n_cols;
 
